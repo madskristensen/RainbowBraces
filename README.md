@@ -13,6 +13,7 @@ or get the [CI build][vsixgallery].
 
 Colorizes matching brace pairs to make it easy to identify them and their scope. Works for curly brackets, parentheses, and square brackets.
 
+![Screenshot](art/screenshot.png)
 
 ## How can I help?
 If you enjoy using the extension, please give it a ★★★★★ rating on the [Visual Studio Marketplace][marketplace].

@@ -4,6 +4,8 @@
         <Identity Id="RainbowBraces.1dff1bc5-a8e4-477b-9054-2b9ec6bb88d1" Version="1.0" Language="en-US" Publisher="Mads Kristensen" />
         <DisplayName>Rainbow Braces</DisplayName>
         <Description xml:space="preserve">Colorizes matching brace pairs to make it easy to identify them and their scope. Works for curly brackets, parentheses, and square brackets.</Description>
+        <MoreInfo>https://github.com/madskristensen/RainbowBraces</MoreInfo>
+        <License>Resources\LICENSE</License>
         <Icon>Resources\Icon.png</Icon>
         <PreviewImage>Resources\Icon.png</PreviewImage>
         <Tags>braces, color</Tags>

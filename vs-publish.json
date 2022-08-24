@@ -6,7 +6,10 @@
     "tags": [ "color", "braces", "brackets" ]
   },
   "assetFiles": [
-
+    {
+      "pathOnDisk": "art/screenshot.png",
+      "targetPath": "art/screenshot.png"
+    }
   ],
   "overview": "README.md",
   "publisher": "MadsKristensen",
