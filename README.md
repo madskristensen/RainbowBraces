@@ -15,6 +15,12 @@ Colorizes matching brace pairs to make it easy to identify them and their scope.
 
 ![Screenshot](art/screenshot.png)
 
+You can customize the colors from the **Tools -> Options** dialog.
+
+![Options](art/options.png)
+
+For more advanced features, I recommend the free [Viasfora extension](https://marketplace.visualstudio.com/items?itemName=TomasRestrepo.Viasfora) by [Tomas Restrepo](https://twitter.com/tomasrestrepo).
+
 ## How can I help?
 If you enjoy using the extension, please give it a ★★★★★ rating on the [Visual Studio Marketplace][marketplace].
 

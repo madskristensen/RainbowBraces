@@ -14,7 +14,7 @@ namespace RainbowBraces
     public class CreationListener : IViewTaggerProvider
     {
         [Import]
-        internal IClassificationTypeRegistryService _factory = null;
+        internal IClassificationTypeRegistryService _registry = null;
 
         [Import]
         internal IViewTagAggregatorFactoryService _aggregator = null;
@@ -27,7 +27,8 @@ namespace RainbowBraces
                 _isProcessing = true;
                 ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                 _isProcessing = false;
-                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(buffer, _factory, aggregator)) as ITagger<T>;
+
+                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(buffer, _registry, aggregator)) as ITagger<T>;
             }
 
             return null;

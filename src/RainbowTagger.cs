@@ -14,6 +14,8 @@ namespace RainbowBraces
         private readonly ITextBuffer2 _buffer;
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private List<ITagSpan<IClassificationTag>> _tags = new();
+        private bool _isProcessing;
 
         public RainbowTagger(ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
@@ -30,8 +32,6 @@ namespace RainbowBraces
             ParseAsync().FireAndForget();
         }
 
-        public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
-
         IEnumerable<ITagSpan<IClassificationTag>> ITagger<IClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
             if (spans[0].IsEmpty)
@@ -41,9 +41,6 @@ namespace RainbowBraces
 
             return _tags.Where(p => spans[0].Contains(p.Span.Span));
         }
-
-        private List<ITagSpan<IClassificationTag>> _tags = new();
-        private bool _isProcessing;
 
         public async Task ParseAsync()
         {
@@ -148,5 +145,7 @@ namespace RainbowBraces
                    where p.Close != null && p.Close.Start - p.Open.Start > 1
                    select p;
         }
+
+        public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
     }
 }

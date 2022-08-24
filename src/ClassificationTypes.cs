@@ -70,7 +70,7 @@ namespace RainbowBraces
     {
         public Level1()
         {
-            ForegroundColor = Colors.Green;
+            ForegroundColor = Color.FromArgb(0xff, 0xff, 0x99, 0x00);
             DisplayName = ClassificationTypes.Level1;
         }
     }
@@ -84,7 +84,7 @@ namespace RainbowBraces
     {
         public Level2()
         {
-            ForegroundColor = Color.FromArgb(0xff, 0xff, 0x99, 0x00);
+            ForegroundColor = Colors.DeepPink;
             DisplayName = ClassificationTypes.Level2;
         }
     }
@@ -98,7 +98,7 @@ namespace RainbowBraces
     {
         public Level3()
         {
-            ForegroundColor = Colors.DeepPink;
+            ForegroundColor = Colors.YellowGreen;
             DisplayName = ClassificationTypes.Level3;
         }
     }
@@ -112,7 +112,7 @@ namespace RainbowBraces
     {
         public Level4()
         {
-            ForegroundColor = Colors.YellowGreen;
+            ForegroundColor = Colors.DarkViolet;
             DisplayName = ClassificationTypes.Level4;
         }
     }
@@ -126,7 +126,7 @@ namespace RainbowBraces
     {
         public Level5()
         {
-            ForegroundColor = Colors.DarkViolet;
+            ForegroundColor = Colors.DimGray;
             DisplayName = ClassificationTypes.Level5;
         }
     }
@@ -140,7 +140,7 @@ namespace RainbowBraces
     {
         public Level6()
         {
-            ForegroundColor = Colors.DimGray;
+            ForegroundColor = Colors.RoyalBlue;
             DisplayName = ClassificationTypes.Level6;
         }
     }
@@ -154,7 +154,7 @@ namespace RainbowBraces
     {
         public Level7()
         {
-            ForegroundColor = Colors.RoyalBlue;
+            ForegroundColor = Colors.Crimson;
             DisplayName = ClassificationTypes.Level7;
         }
     }
@@ -168,7 +168,7 @@ namespace RainbowBraces
     {
         public Level8()
         {
-            ForegroundColor = Colors.Crimson;
+            ForegroundColor = Colors.DarkTurquoise;
             DisplayName = ClassificationTypes.Level8;
         }
     }
@@ -182,7 +182,7 @@ namespace RainbowBraces
     {
         public Level9()
         {
-            ForegroundColor = Colors.DarkTurquoise;
+            ForegroundColor = Colors.Green;
             DisplayName = ClassificationTypes.Level9;
         }
     }
