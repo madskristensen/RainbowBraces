@@ -9,6 +9,10 @@
     {
       "pathOnDisk": "art/screenshot.png",
       "targetPath": "art/screenshot.png"
+    },
+    {
+      "pathOnDisk": "art/options.png",
+      "targetPath": "art/options.png"
     }
   ],
   "overview": "README.md",
