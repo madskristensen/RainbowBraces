@@ -96,33 +96,38 @@ namespace RainbowBraces
             foreach (IMappingTagSpan<IClassificationTag> mappingSpan in spans)
             {
                 if (!mappingSpan.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
-                    !mappingSpan.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator))
+                    !mappingSpan.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
+                    !mappingSpan.Tag.ClassificationType.IsOfType("XAML Delimiter"))
                 {
                     continue;
                 }
 
                 SnapshotSpan span = mappingSpan.Span.GetSpans(_buffer).FirstOrDefault();
 
-                if (span == null || span.Length != 1)
+                if (span == null)
                 {
                     continue;
                 }
 
-                char c = span.GetText()[0];
+                string text = span.GetText();
 
-                Span braceSpan = new(span.Start, 1);
+                for (int i = 0; i < text.Length; i++)
+                {
+                    char c = text[i];
+                    Span braceSpan = new(span.Start + i, 1);
 
-                if (c == '(' || c == ')')
-                {
-                    BuildPairs(parentheses, c, braceSpan, '(', ')');
-                }
-                else if (c == '{' || c == '}')
-                {
-                    BuildPairs(curlies, c, braceSpan, '{', '}');
-                }
-                else if (c == '[' || c == ']')
-                {
-                    BuildPairs(squares, c, braceSpan, '[', ']');
+                    if (c == '(' || c == ')')
+                    {
+                        BuildPairs(parentheses, c, braceSpan, '(', ')');
+                    }
+                    else if (c == '{' || c == '}')
+                    {
+                        BuildPairs(curlies, c, braceSpan, '{', '}');
+                    }
+                    else if (c == '[' || c == ']')
+                    {
+                        BuildPairs(squares, c, braceSpan, '[', ']');
+                    }
                 }
             }
 

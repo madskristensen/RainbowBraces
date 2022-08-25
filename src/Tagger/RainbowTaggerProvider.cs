@@ -22,13 +22,14 @@ namespace RainbowBraces
         public bool _isProcessing { get; set; }
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
+            // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
             if (!_isProcessing)
             {
                 _isProcessing = true;
                 ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                 _isProcessing = false;
 
-                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, _registry, aggregator)) as ITagger<T>;
+                return textView.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, _registry, aggregator)) as ITagger<T>;
             }
 
             return null;
