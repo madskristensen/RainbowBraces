@@ -12,6 +12,7 @@ namespace RainbowBraces
 {
     public class RainbowTagger : ITagger<IClassificationTag>
     {
+        private static bool _ratingCounted;
         private readonly ITextBuffer2 _buffer;
         private readonly ITextView _view;
         private readonly IClassificationTypeRegistryService _registry;
@@ -138,6 +139,13 @@ namespace RainbowBraces
             int start = _view.TextViewLines.First().Start.Position;
             int end = _view.TextViewLines.Last().End.Position;
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, start, end - start)));
+
+            if (tags.Count > 0 && !_ratingCounted)
+            {
+                _ratingCounted = true;
+                RatingPrompt prompt = new ("MadsKristensen.RainbowBraces", Vsix.Name, General.Instance, 10);
+                prompt.RegisterSuccessfulUsage();
+            }
         }
 
         private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs)
