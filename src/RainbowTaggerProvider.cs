@@ -8,7 +8,7 @@ using Microsoft.VisualStudio.Utilities;
 namespace RainbowBraces
 {
     [Export(typeof(IViewTaggerProvider))]
-    [ContentType("any")]
+    [ContentType("code")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider

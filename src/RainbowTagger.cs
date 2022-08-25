@@ -14,8 +14,8 @@ namespace RainbowBraces
         private readonly ITextBuffer2 _buffer;
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private readonly Debouncer _debouncer = new(250);
         private List<ITagSpan<IClassificationTag>> _tags = new();
-        private bool _isProcessing;
 
         public RainbowTagger(ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
@@ -24,12 +24,16 @@ namespace RainbowBraces
             _aggregator = aggregator;
             _buffer.Changed += OnChanged;
 
-            ParseAsync().FireAndForget();
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await ParseAsync();
+            }).FireAndForget();
         }
+
 
         private void OnChanged(object sender, TextContentChangedEventArgs e)
         {
-            ParseAsync().FireAndForget();
+            _debouncer.Debouce(() => ParseAsync().FireAndForget());
         }
 
         IEnumerable<ITagSpan<IClassificationTag>> ITagger<IClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
@@ -39,24 +43,20 @@ namespace RainbowBraces
                 return null;
             }
 
-            return _tags.Where(p => spans[0].Contains(p.Span.Span));
+            return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span)).ToArray();
         }
 
         public async Task ParseAsync()
         {
-            if (_isProcessing)
-            {
-                return;
-            }
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             IEnumerable<IMappingTagSpan<IClassificationTag>> spans = _aggregator.GetTags(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)).ToArray();
             await TaskScheduler.Default;
 
-            _isProcessing = true;
-
             List<BracePair> parentheses = new();
             List<BracePair> curlies = new();
             List<BracePair> squares = new();
+            List<BracePair> angles = new();
 
             foreach (IMappingTagSpan<IClassificationTag> mappingSpan in spans)
             {
@@ -89,14 +89,17 @@ namespace RainbowBraces
                 {
                     BuildPairs(squares, c, braceSpan, '[', ']');
                 }
+                //else if (c == '<' || c == '>')
+                //{
+                //    BuildPairs(angles, c, braceSpan, '<', '>');
+                //}
             }
 
-            IEnumerable<BracePair> pairs = CleanPairs(parentheses.Union(curlies).Union(squares));
+            IEnumerable<BracePair> pairs = CleanPairs(parentheses.Union(curlies).Union(squares).Union(angles)).OrderBy(p => p.Open.Start);
             List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(pairs);
 
-            _isProcessing = false;
             _tags = tags;
-            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
+            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
         }
 
         private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs)
@@ -141,8 +144,7 @@ namespace RainbowBraces
         private IEnumerable<BracePair> CleanPairs(IEnumerable<BracePair> pairs)
         {
             return from p in pairs
-                   where p.Level > 0
-                   where p.Close != null && p.Close.Start - p.Open.Start > 1
+                   where p.Close.Start - p.Open.Start > 1
                    select p;
         }
 

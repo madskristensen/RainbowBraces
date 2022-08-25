@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="BracePair.cs" />
     <Compile Include="ClassificationTypes.cs" />
+    <Compile Include="Debouncer.cs" />
     <Compile Include="RainbowTagger.cs" />
     <Compile Include="RainbowTaggerProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
