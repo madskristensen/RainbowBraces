@@ -126,7 +126,7 @@ namespace RainbowBraces
                 }
             }
 
-            IEnumerable<BracePair> pairs = CleanPairs(parentheses.Union(curlies).Union(squares)).OrderBy(p => p.Open.Start);
+            IEnumerable<BracePair> pairs = parentheses.Union(curlies).Union(squares).OrderBy(p => p.Open.Start);
             List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(pairs);
 
             _tags = tags;
@@ -172,13 +172,6 @@ namespace RainbowBraces
                     pair.Close = braceSpan;
                 }
             }
-        }
-
-        private IEnumerable<BracePair> CleanPairs(IEnumerable<BracePair> pairs)
-        {
-            return from p in pairs
-                   where p.Close.Start - p.Open.Start > 1
-                   select p;
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
