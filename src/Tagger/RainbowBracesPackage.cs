@@ -8,6 +8,7 @@ namespace RainbowBraces
 {
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [InstalledProductRegistration(Vsix.Name, Vsix.Description, Vsix.Version)]
+    [ProvideOptionPage(typeof(OptionsProvider.GeneralOptions), "Environment\\Fonts and Colors", Vsix.Name, 0, 0, true, SupportsProfiles = true, ProvidesLocalizedCategoryName = false)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [Guid(PackageGuids.RainbowBracesString)]
     public sealed class RainbowBracesPackage : ToolkitPackage

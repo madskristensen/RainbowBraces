@@ -19,6 +19,10 @@ You can customize the colors from the **Tools -> Options** dialog.
 
 ![Options](art/options.png)
 
+There are also a few other specific options available under the **Fonts and Colors** tree node.
+
+![Options2](art/options2.png)
+
 For more advanced features, I recommend the free [Viasfora extension](https://marketplace.visualstudio.com/items?itemName=TomasRestrepo.Viasfora) by [Tomas Restrepo](https://twitter.com/tomasrestrepo).
 
 ## How can I help?

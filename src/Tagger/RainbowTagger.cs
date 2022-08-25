@@ -13,31 +13,62 @@ namespace RainbowBraces
     public class RainbowTagger : ITagger<IClassificationTag>
     {
         private readonly ITextBuffer2 _buffer;
+        private readonly ITextView _view;
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
-        private readonly Debouncer _debouncer = new(250);
+        private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
+        private bool _isEnabled;
 
         public RainbowTagger(ITextView view, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
             _buffer = (ITextBuffer2)view.TextBuffer;
+            _view = view;
             _registry = registry;
             _aggregator = aggregator;
+            _isEnabled = General.Instance.Enabled;
+            _debouncer = new(General.Instance.Timeout);
 
-            _buffer.PostChanged += OnChanged;
+            _buffer.PostChanged += OnBufferChanged;
             view.Closed += OnViewClosed;
-            ParseAsync().FireAndForget();
+            General.Saved += OnSettingsSaved;
+
+            if (_isEnabled)
+            {
+                ParseAsync().FireAndForget();
+            }
         }
+
+        private void OnSettingsSaved(General settings)
+        {
+
+            if (settings.Enabled)
+            {
+                ParseAsync().FireAndForget();
+            }
+            if (!_isEnabled)
+            {
+                _tags.Clear();
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
+            }
+            
+            _isEnabled = settings.Enabled;
+        }
+
         private void OnViewClosed(object sender, EventArgs e)
         {
             ITextView view = (ITextView)sender;
-            view.TextBuffer.PostChanged -= OnChanged;
+            view.TextBuffer.PostChanged -= OnBufferChanged;
             view.Closed -= OnViewClosed;
+            General.Saved -= OnSettingsSaved;
         }
 
-        private void OnChanged(object sender, EventArgs e)
+        private void OnBufferChanged(object sender, EventArgs e)
         {
-            _debouncer.Debouce(() => ParseAsync().FireAndForget());
+            if (_isEnabled)
+            {
+                _debouncer.Debouce(() => ParseAsync().FireAndForget());
+            }
         }
 
         IEnumerable<ITagSpan<IClassificationTag>> ITagger<IClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
@@ -61,7 +92,6 @@ namespace RainbowBraces
             List<BracePair> parentheses = new();
             List<BracePair> curlies = new();
             List<BracePair> squares = new();
-            List<BracePair> angles = new();
 
             foreach (IMappingTagSpan<IClassificationTag> mappingSpan in spans)
             {
@@ -94,17 +124,15 @@ namespace RainbowBraces
                 {
                     BuildPairs(squares, c, braceSpan, '[', ']');
                 }
-                //else if (c == '<' || c == '>')
-                //{
-                //    BuildPairs(angles, c, braceSpan, '<', '>');
-                //}
             }
 
-            IEnumerable<BracePair> pairs = CleanPairs(parentheses.Union(curlies).Union(squares).Union(angles)).OrderBy(p => p.Open.Start);
+            IEnumerable<BracePair> pairs = CleanPairs(parentheses.Union(curlies).Union(squares)).OrderBy(p => p.Open.Start);
             List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(pairs);
 
             _tags = tags;
-            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
+            int start = _view.TextViewLines.First().Start.Position;
+            int end = _view.TextViewLines.Last().End.Position;
+            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, start, end - start)));
         }
 
         private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs)
