@@ -28,7 +28,7 @@ namespace RainbowBraces
                 ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                 _isProcessing = false;
 
-                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(buffer, _registry, aggregator)) as ITagger<T>;
+                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, _registry, aggregator)) as ITagger<T>;
             }
 
             return null;

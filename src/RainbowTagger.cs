@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
+using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
 
@@ -17,21 +18,24 @@ namespace RainbowBraces
         private readonly Debouncer _debouncer = new(250);
         private List<ITagSpan<IClassificationTag>> _tags = new();
 
-        public RainbowTagger(ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
+        public RainbowTagger(ITextView view, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
-            _buffer = (ITextBuffer2)buffer;
+            _buffer = (ITextBuffer2)view.TextBuffer;
             _registry = registry;
             _aggregator = aggregator;
-            _buffer.Changed += OnChanged;
 
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
-            {
-                await ParseAsync();
-            }).FireAndForget();
+            _buffer.PostChanged += OnChanged;
+            view.Closed += OnViewClosed;
+            ParseAsync().FireAndForget();
+        }
+        private void OnViewClosed(object sender, EventArgs e)
+        {
+            ITextView view = (ITextView)sender;
+            view.TextBuffer.PostChanged -= OnChanged;
+            view.Closed -= OnViewClosed;
         }
 
-
-        private void OnChanged(object sender, TextContentChangedEventArgs e)
+        private void OnChanged(object sender, EventArgs e)
         {
             _debouncer.Debouce(() => ParseAsync().FireAndForget());
         }
@@ -48,6 +52,7 @@ namespace RainbowBraces
 
         public async Task ParseAsync()
         {
+            await Task.Yield();
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             IEnumerable<IMappingTagSpan<IClassificationTag>> spans = _aggregator.GetTags(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)).ToArray();
