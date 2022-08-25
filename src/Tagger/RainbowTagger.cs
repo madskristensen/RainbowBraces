@@ -52,7 +52,7 @@ namespace RainbowBraces
                 _tags.Clear();
                 TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
             }
-            
+
             _isEnabled = settings.Enabled;
         }
 
@@ -74,12 +74,12 @@ namespace RainbowBraces
 
         IEnumerable<ITagSpan<IClassificationTag>> ITagger<IClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            if (spans[0].IsEmpty)
+            if (_tags.Count == 0 || spans.Count == 0 || spans[0].IsEmpty)
             {
                 return null;
             }
 
-            return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span)).ToArray();
+            return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span));
         }
 
         public async Task ParseAsync()
@@ -140,10 +140,15 @@ namespace RainbowBraces
             int end = _view.TextViewLines.Last().End.Position;
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, start, end - start)));
 
-            if (tags.Count > 0 && !_ratingCounted)
+            HandleRatingPrompt(tags.Count > 0);
+        }
+
+        private static void HandleRatingPrompt(bool hasTags)
+        {
+            if (hasTags && !_ratingCounted)
             {
                 _ratingCounted = true;
-                RatingPrompt prompt = new ("MadsKristensen.RainbowBraces", Vsix.Name, General.Instance, 10);
+                RatingPrompt prompt = new("MadsKristensen.RainbowBraces", Vsix.Name, General.Instance, 10);
                 prompt.RegisterSuccessfulUsage();
             }
         }
