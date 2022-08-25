@@ -46,7 +46,7 @@ namespace RainbowBraces
             {
                 ParseAsync().FireAndForget();
             }
-            if (!_isEnabled)
+            else
             {
                 _tags.Clear();
                 TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));

@@ -15,6 +15,10 @@ Colorizes matching brace pairs to make it easy to identify them and their scope.
 
 ![Screenshot](art/screenshot.png)
 
+To toggle the brace colorization on and off, a menu item is available under the **Edit -> Advanced** menu or using the shortcut **Ctrl+Shift+9**.
+
+![Menu](art/menu.png)
+
 You can customize the colors from the **Tools -> Options** dialog.
 
 ![Options](art/options.png)

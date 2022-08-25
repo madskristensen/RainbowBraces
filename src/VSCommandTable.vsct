@@ -7,11 +7,29 @@
   <Include href="VSGlobals.vsct"/>
 
   <Commands package="RainbowBraces">
+    <Buttons>
+      <Button guid="RainbowBraces" id="Toggle" priority="100" type="Button">
+        <Parent guid="VSEditor" id="Edit.LanguageInfoGroup.Advanced.CommandsGroup"/>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Toggle Rainbow Braces</ButtonText>
+          <LocCanonicalName>.RainbowBraces.ToggleOnOff</LocCanonicalName>
+        </Strings>
+      </Button>
+    </Buttons>
   </Commands>
+
+  <VisibilityConstraints>
+    <VisibilityItem guid="RainbowBraces" id="Toggle" context="GUID_TextEditorFactory" />
+  </VisibilityConstraints>
+
+  <KeyBindings>
+    <KeyBinding guid="RainbowBraces" id="Toggle" editor="guidVSStd97" key1="9" mod1="Control Shift" />
+  </KeyBindings>
 
   <Symbols>
     <GuidSymbol name="RainbowBraces" value="{8eb8a1e7-610c-47ec-b867-a8b500937f99}">
-      
+      <IDSymbol name="Toggle" value="10"/>
     </GuidSymbol>
   </Symbols>
 </CommandTable>

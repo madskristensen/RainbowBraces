@@ -1,8 +1,9 @@
-﻿global using Community.VisualStudio.Toolkit;
-global using Task = System.Threading.Tasks.Task;
-global using System;
+﻿global using System;
+global using Community.VisualStudio.Toolkit;
 global using Microsoft.VisualStudio.Shell;
+global using Task = System.Threading.Tasks.Task;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace RainbowBraces
 {
@@ -13,5 +14,9 @@ namespace RainbowBraces
     [Guid(PackageGuids.RainbowBracesString)]
     public sealed class RainbowBracesPackage : ToolkitPackage
     {
+        protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
+        {
+            await this.RegisterCommandsAsync();
+        }
     }
 }
