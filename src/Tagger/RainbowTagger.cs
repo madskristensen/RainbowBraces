@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
@@ -68,7 +69,7 @@ namespace RainbowBraces
         {
             if (_isEnabled)
             {
-                _debouncer.Debouce(() => ParseAsync().FireAndForget());
+                _debouncer.Debouce(() => { _ = ParseAsync(); });
             }
         }
 
@@ -82,65 +83,70 @@ namespace RainbowBraces
             return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span));
         }
 
+        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
+
         public async Task ParseAsync()
         {
             await Task.Yield();
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            IEnumerable<IMappingTagSpan<IClassificationTag>> spans = _aggregator.GetTags(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)).ToArray();
-            await TaskScheduler.Default;
+            List<BracePair> pairs = new();
 
-            List<BracePair> parentheses = new();
-            List<BracePair> curlies = new();
-            List<BracePair> squares = new();
-
-            foreach (IMappingTagSpan<IClassificationTag> mappingSpan in spans)
+            foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if (!mappingSpan.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
-                    !mappingSpan.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
-                    !mappingSpan.Tag.ClassificationType.IsOfType("XAML Delimiter"))
+                if (line.Extent.IsEmpty)
                 {
                     continue;
                 }
 
-                SnapshotSpan span = mappingSpan.Span.GetSpans(_buffer).FirstOrDefault();
+                string text = line.GetText();
+                MatchCollection matches = _regex.Matches(text);
 
-                if (span == null)
+                if (matches.Count == 0)
                 {
                     continue;
                 }
 
-                string text = span.GetText();
+                IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(line.Extent)
+                                                        .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
+                                                                    !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
+                                                                    !t.Tag.ClassificationType.IsOfType("XAML Delimiter"))
+                                                        .SelectMany(d => d.Span.GetSpans(_buffer)).ToArray();
 
-                for (int i = 0; i < text.Length; i++)
+                foreach (Match match in matches)
                 {
-                    char c = text[i];
-                    Span braceSpan = new(span.Start + i, 1);
+                    char c = match.Value[0];
+                    int position = line.Start + match.Index;
+
+                    if (disallow.Any(s => s.Start <= position && s.End > position))
+                    {
+                        continue;
+                    }
+
+                    Span braceSpan = new(position, 1);
 
                     if (c == '(' || c == ')')
                     {
-                        BuildPairs(parentheses, c, braceSpan, '(', ')');
+                        BuildPairs(pairs, c, braceSpan, '(', ')');
                     }
                     else if (c == '{' || c == '}')
                     {
-                        BuildPairs(curlies, c, braceSpan, '{', '}');
+                        BuildPairs(pairs, c, braceSpan, '{', '}');
                     }
                     else if (c == '[' || c == ']')
                     {
-                        BuildPairs(squares, c, braceSpan, '[', ']');
+                        BuildPairs(pairs, c, braceSpan, '[', ']');
                     }
                 }
             }
 
-            IEnumerable<BracePair> pairs = parentheses.Union(curlies).Union(squares).OrderBy(p => p.Open.Start);
-            List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(pairs);
+            _tags = GenerateTagSpans(pairs);
 
-            _tags = tags;
             int start = _view.TextViewLines.First().Start.Position;
             int end = _view.TextViewLines.Last().End.Position;
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, start, end - start)));
 
-            HandleRatingPrompt(tags.Count > 0);
+            HandleRatingPrompt(_tags.Count > 0);
         }
 
         private static void HandleRatingPrompt(bool hasTags)
@@ -174,7 +180,7 @@ namespace RainbowBraces
 
         private void BuildPairs(List<BracePair> pairs, char match, Span braceSpan, char open, char close)
         {
-            int level = Math.Min(pairs.Count(p => p.Close.IsEmpty) + 1, 10);
+            int level = pairs.Count(p => p.Close.IsEmpty) + 1;
             BracePair pair = new() { Level = level };
 
             if (match == open)
