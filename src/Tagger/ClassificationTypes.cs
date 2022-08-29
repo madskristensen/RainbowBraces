@@ -52,7 +52,7 @@ namespace RainbowBraces
     {
         public Level1()
         {
-            ForegroundColor = Colors.Orange;
+            ForegroundColor = Color.FromArgb(0xff, 0xff, 0x99, 0x00);
             DisplayName = ClassificationTypes.Level1;
         }
     }
@@ -66,7 +66,7 @@ namespace RainbowBraces
     {
         public Level2()
         {
-            ForegroundColor = Colors.Green;
+            ForegroundColor = Colors.OrangeRed;
             DisplayName = ClassificationTypes.Level2;
         }
     }
@@ -94,7 +94,7 @@ namespace RainbowBraces
     {
         public Level4()
         {
-            ForegroundColor = Colors.CornflowerBlue;
+            ForegroundColor = Colors.OliveDrab;
             DisplayName = ClassificationTypes.Level4;
         }
     }}
