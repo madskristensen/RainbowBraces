@@ -15,6 +15,10 @@ Colorizes matching brace pairs to make it easy to identify them and their scope.
 
 ![Screenshot](art/screenshot.png)
 
+Both ligth and dark themes are supported.
+
+![Screenshot](art/theme-colors.png)
+
 To toggle the brace colorization on and off, a menu item is available under the **Edit -> Advanced** menu or using the shortcut **Ctrl+Shift+9**.
 
 ![Menu](art/menu.png)
