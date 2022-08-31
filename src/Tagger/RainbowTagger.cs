@@ -1,13 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
-using Microsoft.VisualStudio.Threading;
 
 namespace RainbowBraces
 {
@@ -92,6 +90,8 @@ namespace RainbowBraces
 
             List<BracePair> pairs = new();
 
+            General options = await General.GetLiveInstanceAsync();
+
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
                 if (line.Extent.IsEmpty)
@@ -125,15 +125,15 @@ namespace RainbowBraces
 
                     Span braceSpan = new(position, 1);
 
-                    if (c == '(' || c == ')')
+                    if (options.Parentheses && (c == '(' || c == ')'))
                     {
                         BuildPairs(pairs, c, braceSpan, '(', ')');
                     }
-                    else if (c == '{' || c == '}')
+                    else if (options.CurlyBrackets && (c == '{' || c == '}'))
                     {
                         BuildPairs(pairs, c, braceSpan, '{', '}');
                     }
-                    else if (c == '[' || c == ']')
+                    else if (options.SquareBrackets && (c == '[' || c == ']'))
                     {
                         BuildPairs(pairs, c, braceSpan, '[', ']');
                     }
