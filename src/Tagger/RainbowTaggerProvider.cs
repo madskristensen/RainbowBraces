@@ -22,6 +22,10 @@ namespace RainbowBraces
         public bool _isProcessing { get; set; }
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
+            //We can ignore anything HTML, embedded languages will be handled separately
+            if (buffer.ContentType.IsOfType("HTML"))
+                return null;
+
             // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
             if (!_isProcessing)
             {
@@ -29,7 +33,7 @@ namespace RainbowBraces
                 ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                 _isProcessing = false;
 
-                return textView.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, _registry, aggregator)) as ITagger<T>;
+                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, buffer, _registry, aggregator)) as ITagger<T>;
             }
 
             return null;
