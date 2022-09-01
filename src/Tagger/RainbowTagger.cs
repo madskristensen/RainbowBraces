@@ -20,9 +20,9 @@ namespace RainbowBraces
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private bool _isEnabled;
 
-        public RainbowTagger(ITextView view, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
+        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
-            _buffer = (ITextBuffer2)view.TextBuffer;
+            _buffer = (ITextBuffer2)buffer;
             _view = view;
             _registry = registry;
             _aggregator = aggregator;
