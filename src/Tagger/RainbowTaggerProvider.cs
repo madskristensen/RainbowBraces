@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.Composition;
+﻿using System.Collections.Generic;
+using System.ComponentModel.Composition;
+using System.Linq;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
@@ -19,12 +21,16 @@ namespace RainbowBraces
         [Import]
         internal IViewTagAggregatorFactoryService _aggregator = null;
 
+        private static readonly List<string> _unsupportedContentTypes = new() { "HTML", "HTMLX", "html-delegation", "WebForms", "Razor", "LegacyRazorCSharp" };
+
         public bool _isProcessing { get; set; }
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
             //We can ignore anything HTML, embedded languages will be handled separately
-            if (buffer.ContentType.IsOfType("HTML"))
+            if (_unsupportedContentTypes.Any(ct => buffer.ContentType.IsOfType(ct)))
+            {
                 return null;
+            }
 
             // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
             if (!_isProcessing)
