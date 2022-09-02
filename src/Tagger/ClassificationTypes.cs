@@ -7,13 +7,15 @@ namespace RainbowBraces
 {
     public class ClassificationTypes
     {
+        private const int _maxLevels = 4;
+
         public static string GetName(int level)
         {
-            int mod = level % 4;
+            int mod = level % _maxLevels;
 
             if (mod == 0)
             {
-                mod = 4;
+                mod = _maxLevels;
             }
 
             return mod switch
@@ -21,7 +23,7 @@ namespace RainbowBraces
                 1 => Level1,
                 2 => Level2,
                 3 => Level3,
-                _ =>    Level4
+                _ => Level4
             };
         }
 
@@ -97,4 +99,5 @@ namespace RainbowBraces
             ForegroundColor = Colors.OliveDrab;
             DisplayName = ClassificationTypes.Level4;
         }
-    }}
+    }
+}
