@@ -15,7 +15,7 @@ Colorizes matching brace pairs to make it easy to identify them and their scope.
 
 ![Screenshot](art/screenshot.png)
 
-Both ligth and dark themes are supported.
+Both light and dark themes are supported.
 
 ![Screenshot](art/theme-colors.png)
 
