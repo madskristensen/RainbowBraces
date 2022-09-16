@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
-using Microsoft.VisualStudio.Web.BrowserLink;
 
 namespace RainbowBraces
 {
@@ -29,7 +28,7 @@ namespace RainbowBraces
         [DisplayName("Colorize curly brackets { }")]
         [Description("Determines whether or not curly brackets should be colorized.")]
         [DefaultValue(true)]
-        public bool CurlyBrackets { get; set; } =  true;
+        public bool CurlyBrackets { get; set; } = true;
 
         [Category("Braces and brackets")]
         [DisplayName("Colorize parentheses ( )")]
