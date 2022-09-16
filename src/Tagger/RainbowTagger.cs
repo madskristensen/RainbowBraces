@@ -18,6 +18,7 @@ namespace RainbowBraces
         private readonly ITagAggregator<IClassificationTag> _aggregator;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
+        private List<BracePair> _braces = new();
         private bool _isEnabled;
 
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
@@ -29,27 +30,35 @@ namespace RainbowBraces
             _isEnabled = General.Instance.Enabled;
             _debouncer = new(General.Instance.Timeout);
 
-            _buffer.PostChanged += OnBufferChanged;
+            _buffer.Changed += OnBufferChanged;
             view.Closed += OnViewClosed;
             General.Saved += OnSettingsSaved;
 
             if (_isEnabled)
             {
-                ParseAsync().FireAndForget();
+                _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
+                {
+                    await ParseAsync();
+                }, VsTaskRunContext.UIThreadIdlePriority);
             }
         }
 
         private void OnSettingsSaved(General settings)
         {
-
             if (settings.Enabled)
             {
-                ParseAsync().FireAndForget();
+                _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
+                {
+                    await ParseAsync();
+                }, VsTaskRunContext.UIThreadIdlePriority);
             }
             else
             {
+                _braces.Clear();
                 _tags.Clear();
-                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
+                int visibleStart = _view.TextViewLines.First().Start.Position;
+                int visibleEnd = _view.TextViewLines.Last().End.Position;
+                TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             }
 
             _isEnabled = settings.Enabled;
@@ -58,16 +67,17 @@ namespace RainbowBraces
         private void OnViewClosed(object sender, EventArgs e)
         {
             ITextView view = (ITextView)sender;
-            view.TextBuffer.PostChanged -= OnBufferChanged;
+            view.TextBuffer.Changed -= OnBufferChanged;
             view.Closed -= OnViewClosed;
             General.Saved -= OnSettingsSaved;
         }
 
-        private void OnBufferChanged(object sender, EventArgs e)
+        private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            if (_isEnabled)
+            if (_isEnabled && e.Changes.Count > 0)
             {
-                _debouncer.Debouce(() => { _ = ParseAsync(); });
+                int startPosition = e.Changes.Min(change => change.OldPosition);
+                _debouncer.Debouce(() => { _ = ParseAsync(startPosition); });
             }
         }
 
@@ -82,19 +92,33 @@ namespace RainbowBraces
         }
 
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
+        private static readonly Span _empty = new(0, 0);
 
-        public async Task ParseAsync()
+        public async Task ParseAsync(int changedPosition = 0)
         {
-            await Task.Yield();
+            General options = await General.GetLiveInstanceAsync();
+            
+            if (_buffer.CurrentSnapshot.LineCount > options.MaxBufferLines)
+            {
+                await VS.StatusBar.ShowMessageAsync($"No rainbow braces. File too big ({_buffer.CurrentSnapshot.LineCount} lines).");
+                return;
+            }
+            
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(changedPosition);
             List<BracePair> pairs = new();
 
-            General options = await General.GetLiveInstanceAsync();
-
+            if (changedLine.Start > 0)
+            {
+                // Use the cache for all brackets defined above the position of the change
+                pairs.AddRange(_braces.Where(p => p.Open.End <= changedLine.Start || p.Close.End <= changedLine.Start));
+                pairs.ForEach(p => p.Close = p.Close.End > changedLine.Start ? _empty : p.Close);
+            }
+            
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if (line.Extent.IsEmpty)
+                if (line.End < changedLine.Start || line.Extent.IsEmpty)
                 {
                     continue;
                 }
@@ -140,11 +164,12 @@ namespace RainbowBraces
                 }
             }
 
+            _braces = pairs;
             _tags = GenerateTagSpans(pairs);
 
-            int start = _view.TextViewLines.First().Start.Position;
-            int end = _view.TextViewLines.Last().End.Position;
-            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, start, end - start)));
+            int visibleStart = Math.Max(_view.TextViewLines.First().Start.Position, changedLine.Start);
+            int visibleEnd = _view.TextViewLines.Last().End.Position;
+            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
 
             HandleRatingPrompt(_tags.Count > 0);
         }

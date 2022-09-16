@@ -18,6 +18,12 @@ namespace RainbowBraces
         public bool Enabled { get; set; } = true;
 
         [Category("General")]
+        [DisplayName("Max line length")]
+        [Description("Maximum line count for files to enable colorization. For performance reasons, we don't want to colorize huge files")]
+        [DefaultValue(3000)]
+        public int MaxBufferLines { get; set; } = 3000;
+
+        [Category("General")]
         [DisplayName("Timeout (milliseconds)")]
         [Description("Controls the debounce timeout.")]
         [DefaultValue(500)]
