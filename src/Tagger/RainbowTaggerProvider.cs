@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.ComponentModel.Composition;
-using System.Linq;
+﻿using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
@@ -10,7 +8,15 @@ using Microsoft.VisualStudio.Utilities;
 namespace RainbowBraces
 {
     [Export(typeof(IViewTaggerProvider))]
-    [ContentType("code")]
+    [ContentType(ContentTypes.CPlusPlus)]
+    [ContentType(ContentTypes.CSharp)]
+    [ContentType(ContentTypes.Css)]
+    [ContentType(ContentTypes.Less)]
+    [ContentType(ContentTypes.Scss)]
+    [ContentType(ContentTypes.Json)]
+    [ContentType(ContentTypes.Xaml)]
+    [ContentType("php")]
+    [ContentType("Code++")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
@@ -21,28 +27,27 @@ namespace RainbowBraces
         [Import]
         internal IViewTagAggregatorFactoryService _aggregator = null;
 
-        private static readonly List<string> _unsupportedContentTypes = new() { "HTML", "HTMLX", "html-delegation", "WebForms", "Razor", "LegacyRazorCSharp" };
+        private bool _isProcessing;
 
-        public bool _isProcessing { get; set; }
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
-            //We can ignore anything HTML, embedded languages will be handled separately
-            if (_unsupportedContentTypes.Any(ct => buffer.ContentType.IsOfType(ct)))
+            // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
+            if (_isProcessing)
             {
                 return null;
             }
 
-            // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
-            if (!_isProcessing)
-            {
-                _isProcessing = true;
-                ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
-                _isProcessing = false;
+            _isProcessing = true;
 
+            try
+            {
+                ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                 return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, buffer, _registry, aggregator)) as ITagger<T>;
             }
-
-            return null;
+            finally
+            {
+                _isProcessing = false;
+            }
         }
     }
 }

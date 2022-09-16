@@ -27,7 +27,7 @@ namespace RainbowBraces
             };
         }
 
-        public const string Level1 = "Rainbow Brace level 1";
+    public const string Level1 = "Rainbow Brace level 1";
         public const string Level2 = "Rainbow Brace level 2";
         public const string Level3 = "Rainbow Brace level 3";
         public const string Level4 = "Rainbow Brace level 4";
