@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using Microsoft.VisualStudio.Threading;
 
 namespace RainbowBraces
 {
@@ -36,10 +38,10 @@ namespace RainbowBraces
 
             if (_isEnabled)
             {
-                _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
+                ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
                 {
                     await ParseAsync();
-                }, VsTaskRunContext.UIThreadIdlePriority);
+                }, VsTaskRunContext.UIThreadIdlePriority).FireAndForget();
             }
         }
 
@@ -47,10 +49,7 @@ namespace RainbowBraces
         {
             if (settings.Enabled)
             {
-                _ = ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
-                {
-                    await ParseAsync();
-                }, VsTaskRunContext.UIThreadIdlePriority);
+                ParseAsync().FireAndForget();
             }
             else
             {
@@ -97,28 +96,44 @@ namespace RainbowBraces
         public async Task ParseAsync(int changedPosition = 0)
         {
             General options = await General.GetLiveInstanceAsync();
-            
+
+            // Must be performed on the UI thread.
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
             if (_buffer.CurrentSnapshot.LineCount > options.MaxBufferLines)
             {
                 await VS.StatusBar.ShowMessageAsync($"No rainbow braces. File too big ({_buffer.CurrentSnapshot.LineCount} lines).");
                 return;
             }
-            
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            int visibleStart = _view.TextViewLines.First().Start.Position;
+            int visibleEnd = _view.TextViewLines.Last().End.Position;
 
             ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(changedPosition);
+
+            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, visibleStart, _buffer.CurrentSnapshot.Length - visibleStart);
+            IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(wholeDocSpan)
+                                                     .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
+                                                                 !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
+                                                                 !t.Tag.ClassificationType.IsOfType("XAML Delimiter"))
+                                                     .SelectMany(d => d.Span.GetSpans(_buffer)).ToArray();
+
+            // Move the rest of the execution to a background thread.
+            await TaskScheduler.Default;
+            bool hasInvoked = false;
+
             List<BracePair> pairs = new();
 
-            if (changedLine.Start > 0)
+            if (changedLine.LineNumber > 0)
             {
                 // Use the cache for all brackets defined above the position of the change
-                pairs.AddRange(_braces.Where(p => p.Open.End <= changedLine.Start || p.Close.End <= changedLine.Start));
-                pairs.ForEach(p => p.Close = p.Close.End > changedLine.Start ? _empty : p.Close);
+                pairs.AddRange(_braces.Where(p => p.Open.End <= visibleStart || p.Close.End <= visibleStart));
+                pairs.ForEach(p => p.Close = p.Close.End >= visibleStart ? _empty : p.Close);
             }
-            
+
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if (line.End < changedLine.Start || line.Extent.IsEmpty)
+                if (line.End < visibleStart || line.Extent.IsEmpty)
                 {
                     continue;
                 }
@@ -130,12 +145,6 @@ namespace RainbowBraces
                 {
                     continue;
                 }
-
-                IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(line.Extent)
-                                                        .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
-                                                                    !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
-                                                                    !t.Tag.ClassificationType.IsOfType("XAML Delimiter"))
-                                                        .SelectMany(d => d.Span.GetSpans(_buffer)).ToArray();
 
                 foreach (Match match in matches)
                 {
@@ -162,14 +171,18 @@ namespace RainbowBraces
                         BuildPairs(pairs, c, braceSpan, '[', ']');
                     }
                 }
+
+                if (!hasInvoked && line.End >= visibleEnd)
+                {
+                    hasInvoked = true;
+                    _tags = GenerateTagSpans(pairs);
+                    TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+                    await TaskScheduler.Default;
+                }
             }
 
             _braces = pairs;
             _tags = GenerateTagSpans(pairs);
-
-            int visibleStart = Math.Max(_view.TextViewLines.First().Start.Position, changedLine.Start);
-            int visibleEnd = _view.TextViewLines.Last().End.Position;
-            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
 
             HandleRatingPrompt(_tags.Count > 0);
         }
@@ -205,6 +218,11 @@ namespace RainbowBraces
 
         private void BuildPairs(List<BracePair> pairs, char match, Span braceSpan, char open, char close)
         {
+            if (pairs.Any(p => p.Close == braceSpan || p.Open == braceSpan))
+            {
+                return;
+            }
+
             int level = pairs.Count(p => p.Close.IsEmpty) + 1;
             BracePair pair = new() { Level = level };
 
