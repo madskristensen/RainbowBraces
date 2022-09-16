@@ -21,9 +21,9 @@ namespace RainbowBraces
         [Category("General")]
         [DisplayName("Timeout (milliseconds)")]
         [Description("Controls the debounce timeout.")]
-        [DefaultValue(250)]
+        [DefaultValue(500)]
         [Browsable(false)]
-        public int Timeout { get; set; } = 250;
+        public int Timeout { get; set; } = 500;
 
         [Category("Braces and brackets")]
         [DisplayName("Colorize curly brackets { }")]
