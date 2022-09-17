@@ -15,6 +15,7 @@ namespace RainbowBraces
     {
         private static bool _ratingCounted;
         private readonly ITextBuffer2 _buffer;
+        private readonly ITextDocument _document;
         private readonly ITextView _view;
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
@@ -26,6 +27,7 @@ namespace RainbowBraces
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
             _buffer = (ITextBuffer2)buffer;
+            _document = _buffer.GetTextDocument();
             _view = view;
             _registry = registry;
             _aggregator = aggregator;
@@ -33,6 +35,7 @@ namespace RainbowBraces
             _debouncer = new(General.Instance.Timeout);
 
             _buffer.Changed += OnBufferChanged;
+            _document.DirtyStateChanged += OnDirtyStateChanged;
             view.Closed += OnViewClosed;
             General.Saved += OnSettingsSaved;
 
@@ -43,6 +46,11 @@ namespace RainbowBraces
                     await ParseAsync();
                 }, VsTaskRunContext.UIThreadIdlePriority).FireAndForget();
             }
+        }
+
+        private void OnDirtyStateChanged(object sender, EventArgs e)
+        {
+            ParseAsync().FireAndForget();
         }
 
         private void OnSettingsSaved(General settings)
@@ -67,6 +75,7 @@ namespace RainbowBraces
         {
             ITextView view = (ITextView)sender;
             view.TextBuffer.Changed -= OnBufferChanged;
+            _document.DirtyStateChanged -= OnDirtyStateChanged;
             view.Closed -= OnViewClosed;
             General.Saved -= OnSettingsSaved;
         }
@@ -93,7 +102,7 @@ namespace RainbowBraces
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
         private static readonly Span _empty = new(0, 0);
 
-        public async Task ParseAsync(int changedPosition = 0)
+        public async Task ParseAsync(int topPosition = 0)
         {
             General options = await General.GetLiveInstanceAsync();
 
@@ -109,13 +118,14 @@ namespace RainbowBraces
             int visibleStart = _view.TextViewLines.First().Start.Position;
             int visibleEnd = _view.TextViewLines.Last().End.Position;
 
-            ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(changedPosition);
+            ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(topPosition);
 
-            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, visibleStart, _buffer.CurrentSnapshot.Length - visibleStart);
+            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length);
             IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(wholeDocSpan)
                                                      .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
                                                                  !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
-                                                                 !t.Tag.ClassificationType.IsOfType("XAML Delimiter"))
+                                                                 !t.Tag.ClassificationType.IsOfType("XAML Delimiter") &&
+                                                                 !t.Tag.ClassificationType.IsOfType("SQL Operator"))
                                                      .SelectMany(d => d.Span.GetSpans(_buffer)).ToArray();
 
             // Move the rest of the execution to a background thread.
@@ -133,7 +143,7 @@ namespace RainbowBraces
 
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if (line.End < visibleStart || line.Extent.IsEmpty)
+                if ((topPosition > 10 && line.End < visibleStart) || line.Extent.IsEmpty)
                 {
                     continue;
                 }
