@@ -14,7 +14,7 @@ namespace RainbowBraces
     public class RainbowTagger : ITagger<IClassificationTag>
     {
         private static bool _ratingCounted;
-        private readonly ITextBuffer2 _buffer;
+        private readonly ITextBuffer _buffer;
         private readonly ITextDocument _document;
         private readonly ITextView _view;
         private readonly IClassificationTypeRegistryService _registry;
@@ -23,10 +23,12 @@ namespace RainbowBraces
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private List<BracePair> _braces = new();
         private bool _isEnabled;
+        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
+        private static readonly Span _empty = new(0, 0);
 
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
-            _buffer = (ITextBuffer2)buffer;
+            _buffer = buffer;
             _document = _buffer.GetTextDocument();
             _view = view;
             _registry = registry;
@@ -50,7 +52,11 @@ namespace RainbowBraces
 
         private void OnDirtyStateChanged(object sender, EventArgs e)
         {
-            ParseAsync().FireAndForget();
+            if (_isEnabled)
+            {
+                // Reparse every time the document is saved
+                ParseAsync().FireAndForget();
+            }
         }
 
         private void OnSettingsSaved(General settings)
@@ -98,9 +104,6 @@ namespace RainbowBraces
 
             return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span));
         }
-
-        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
-        private static readonly Span _empty = new(0, 0);
 
         public async Task ParseAsync(int topPosition = 0)
         {
