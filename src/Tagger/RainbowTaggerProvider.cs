@@ -19,6 +19,7 @@ namespace RainbowBraces
     [ContentType("SQL")]
     [ContentType("SQL Server Tools")]
     [ContentType("php")]
+    [ContentType("phalanger")]
     [ContentType("Code++")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
