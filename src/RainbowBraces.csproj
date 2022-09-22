@@ -45,10 +45,13 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="BracePair.cs" />
-    <Compile Include="ClassificationTypes.cs" />
-    <Compile Include="RainbowTagger.cs" />
-    <Compile Include="RainbowTaggerProvider.cs" />
+    <Compile Include="Commands\ToggleCommand.cs" />
+    <Compile Include="Tagger\BracePair.cs" />
+    <Compile Include="Tagger\ClassificationTypes.cs" />
+    <Compile Include="Helper\Debouncer.cs" />
+    <Compile Include="Options\General.cs" />
+    <Compile Include="Tagger\RainbowTagger.cs" />
+    <Compile Include="Tagger\RainbowTaggerProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RainbowBracesPackage.cs" />
     <Compile Include="source.extension.cs">

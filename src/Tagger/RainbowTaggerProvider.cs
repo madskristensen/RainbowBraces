@@ -8,7 +8,19 @@ using Microsoft.VisualStudio.Utilities;
 namespace RainbowBraces
 {
     [Export(typeof(IViewTaggerProvider))]
-    [ContentType("any")]
+    [ContentType(ContentTypes.CPlusPlus)]
+    [ContentType(ContentTypes.CSharp)]
+    [ContentType(ContentTypes.Css)]
+    [ContentType(ContentTypes.Less)]
+    [ContentType(ContentTypes.Scss)]
+    [ContentType(ContentTypes.Json)]
+    [ContentType(ContentTypes.Xaml)]
+    [ContentType("TypeScript")]
+    [ContentType("SQL")]
+    [ContentType("SQL Server Tools")]
+    [ContentType("php")]
+    [ContentType("phalanger")]
+    [ContentType("Code++")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
@@ -19,19 +31,27 @@ namespace RainbowBraces
         [Import]
         internal IViewTagAggregatorFactoryService _aggregator = null;
 
-        public bool _isProcessing { get; set; }
+        private bool _isProcessing;
+
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
-            if (!_isProcessing)
+            // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
+            if (_isProcessing)
             {
-                _isProcessing = true;
-                ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
-                _isProcessing = false;
-
-                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(buffer, _registry, aggregator)) as ITagger<T>;
+                return null;
             }
 
-            return null;
+            _isProcessing = true;
+
+            try
+            {
+                ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
+                return buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, buffer, _registry, aggregator)) as ITagger<T>;
+            }
+            finally
+            {
+                _isProcessing = false;
+            }
         }
     }
 }

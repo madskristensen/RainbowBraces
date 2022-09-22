@@ -15,9 +15,21 @@ Colorizes matching brace pairs to make it easy to identify them and their scope.
 
 ![Screenshot](art/screenshot.png)
 
+Both light and dark themes are supported.
+
+![Screenshot](art/theme-colors.png)
+
+To toggle the brace colorization on and off, a menu item is available under the **Edit -> Advanced** menu or using the shortcut **Ctrl+Shift+9**.
+
+![Menu](art/menu.png)
+
 You can customize the colors from the **Tools -> Options** dialog.
 
 ![Options](art/options.png)
+
+There are also a few other specific options available under the **Fonts and Colors** tree node.
+
+![Options2](art/options2.png)
 
 For more advanced features, I recommend the free [Viasfora extension](https://marketplace.visualstudio.com/items?itemName=TomasRestrepo.Viasfora) by [Tomas Restrepo](https://twitter.com/tomasrestrepo).
 

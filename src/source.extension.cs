@@ -11,7 +11,7 @@ namespace RainbowBraces
         public const string Name = "Rainbow Braces";
         public const string Description = @"Colorizes matching brace pairs to make it easy to identify them and their scope. Works for curly brackets, parentheses, and square brackets.";
         public const string Language = "en-US";
-        public const string Version = "1.0";
+        public const string Version = "1.0.500";
         public const string Author = "Mads Kristensen";
         public const string Tags = "braces, color";
     }

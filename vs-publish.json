@@ -13,6 +13,18 @@
     {
       "pathOnDisk": "art/options.png",
       "targetPath": "art/options.png"
+    },
+    {
+      "pathOnDisk": "art/options2.png",
+      "targetPath": "art/options2.png"
+    },
+    {
+      "pathOnDisk": "art/menu.png",
+      "targetPath": "art/menu.png"
+    },
+    {
+      "pathOnDisk": "art/theme-colors.png",
+      "targetPath": "art/theme-colors.png"
     }
   ],
   "overview": "README.md",
