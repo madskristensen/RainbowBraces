@@ -13,12 +13,10 @@ namespace RainbowBraces
 {
     public class RainbowTagger : ITagger<IClassificationTag>
     {
-        private const int _maxLineLength = 10000;
-        private const int _overflow = 500;
+        private const int _maxLineLength = 100000;
+        private const int _overflow = 200;
 
-        private static bool _ratingCounted;
         private readonly ITextBuffer _buffer;
-        private readonly ITextDocument _document;
         private readonly ITextView _view;
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
@@ -32,7 +30,6 @@ namespace RainbowBraces
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
             _buffer = buffer;
-            _document = _buffer.GetTextDocument();
             _view = view;
             _registry = registry;
             _aggregator = aggregator;
@@ -40,8 +37,8 @@ namespace RainbowBraces
             _debouncer = new(General.Instance.Timeout);
 
             _buffer.Changed += OnBufferChanged;
-            _document.DirtyStateChanged += OnDirtyStateChanged;
             view.Closed += OnViewClosed;
+            view.LayoutChanged += View_LayoutChanged;
             General.Saved += OnSettingsSaved;
 
             if (_isEnabled)
@@ -49,16 +46,16 @@ namespace RainbowBraces
                 ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
                 {
                     await ParseAsync();
+                    HandleRatingPrompt();
                 }, VsTaskRunContext.UIThreadIdlePriority).FireAndForget();
             }
         }
 
-        private void OnDirtyStateChanged(object sender, EventArgs e)
+        private void View_LayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
-            if (_isEnabled)
+            if (_isEnabled && (e.VerticalTranslation || e.HorizontalTranslation))
             {
-                // Reparse every time the document is saved
-                ParseAsync().FireAndForget();
+                _debouncer.Debouce(() => { _ = ParseAsync(); });
             }
         }
 
@@ -84,7 +81,6 @@ namespace RainbowBraces
         {
             ITextView view = (ITextView)sender;
             view.TextBuffer.Changed -= OnBufferChanged;
-            _document.DirtyStateChanged -= OnDirtyStateChanged;
             view.Closed -= OnViewClosed;
             General.Saved -= OnSettingsSaved;
         }
@@ -123,10 +119,9 @@ namespace RainbowBraces
 
             int visibleStart = Math.Max(_view.TextViewLines.First().Start.Position - _overflow, 0);
             int visibleEnd = Math.Min(_view.TextViewLines.Last().End.Position + _overflow, _buffer.CurrentSnapshot.Length);
-
             ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(topPosition);
 
-            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length);
+            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, visibleEnd);
             IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(wholeDocSpan)
                                                      .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
                                                                  !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
@@ -136,7 +131,6 @@ namespace RainbowBraces
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
-            bool hasInvoked = false;
 
             List<BracePair> pairs = new();
 
@@ -144,12 +138,16 @@ namespace RainbowBraces
             {
                 // Use the cache for all brackets defined above the position of the change
                 pairs.AddRange(_braces.Where(p => p.Open.End <= visibleStart || p.Close.End <= visibleStart));
-                pairs.ForEach(p => p.Close = p.Close.End >= visibleStart ? _empty : p.Close);
+
+                foreach (BracePair pair in pairs)
+                {
+                    pair.Close = pair.Close.End >= visibleStart ? _empty : pair.Close;
+                }
             }
 
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if ((line.End < visibleStart) || line.Extent.IsEmpty)
+                if ((changedLine.LineNumber > 0 && (line.End < visibleStart) || line.Extent.IsEmpty))
                 {
                     continue;
                 }
@@ -188,26 +186,21 @@ namespace RainbowBraces
                     }
                 }
 
-                if (!hasInvoked && line.End >= visibleEnd)
+                if (line.End >= visibleEnd || line.LineNumber >= _buffer.CurrentSnapshot.LineCount)
                 {
-                    hasInvoked = true;
-                    _tags = GenerateTagSpans(pairs);
-                    TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
-                    await TaskScheduler.Default;
+                    break;
                 }
             }
 
             _braces = pairs;
             _tags = GenerateTagSpans(pairs);
-
-            HandleRatingPrompt(_tags.Count > 0);
+            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
         }
 
-        private static void HandleRatingPrompt(bool hasTags)
+        private void HandleRatingPrompt()
         {
-            if (hasTags && !_ratingCounted)
+            if (_tags.Count > 0)
             {
-                _ratingCounted = true;
                 RatingPrompt prompt = new("MadsKristensen.RainbowBraces", Vsix.Name, General.Instance, 10);
                 prompt.RegisterSuccessfulUsage();
             }
