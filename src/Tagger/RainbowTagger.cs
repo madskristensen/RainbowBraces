@@ -13,6 +13,9 @@ namespace RainbowBraces
 {
     public class RainbowTagger : ITagger<IClassificationTag>
     {
+        private const int _maxLineLength = 10000;
+        private const int _overflow = 500;
+
         private static bool _ratingCounted;
         private readonly ITextBuffer _buffer;
         private readonly ITextDocument _document;
@@ -112,14 +115,14 @@ namespace RainbowBraces
             // Must be performed on the UI thread.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            if (_buffer.CurrentSnapshot.LineCount > options.MaxBufferLines)
+            if (_buffer.CurrentSnapshot.LineCount > _maxLineLength)
             {
                 await VS.StatusBar.ShowMessageAsync($"No rainbow braces. File too big ({_buffer.CurrentSnapshot.LineCount} lines).");
                 return;
             }
 
-            int visibleStart = _view.TextViewLines.First().Start.Position;
-            int visibleEnd = _view.TextViewLines.Last().End.Position;
+            int visibleStart = Math.Max(_view.TextViewLines.First().Start.Position - _overflow, 0);
+            int visibleEnd = Math.Min(_view.TextViewLines.Last().End.Position + _overflow, _buffer.CurrentSnapshot.Length);
 
             ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(topPosition);
 
@@ -146,7 +149,7 @@ namespace RainbowBraces
 
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if ((topPosition > 10 && line.End < visibleStart) || line.Extent.IsEmpty)
+                if ((line.End < visibleStart) || line.Extent.IsEmpty)
                 {
                     continue;
                 }

@@ -12,7 +12,7 @@
         <Parent guid="VSEditor" id="Edit.LanguageInfoGroup.Advanced.CommandsGroup"/>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Toggle Rainbow Braces</ButtonText>
+          <ButtonText>Show Rainbow Braces</ButtonText>
           <LocCanonicalName>.RainbowBraces.ToggleOnOff</LocCanonicalName>
         </Strings>
       </Button>

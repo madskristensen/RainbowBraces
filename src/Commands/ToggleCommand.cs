@@ -3,11 +3,11 @@
     [Command(PackageIds.Toggle)]
     public class ToggleCommand : BaseCommand<ToggleCommand>
     {
-        protected override Task InitializeCompletedAsync()
+        protected override void BeforeQueryStatus(EventArgs e)
         {
-            Command.Supported = false;
-            return base.InitializeCompletedAsync();
+            Command.Checked = General.Instance.Enabled;
         }
+        
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
             General settings = await General.GetLiveInstanceAsync();

@@ -15,13 +15,8 @@ namespace RainbowBraces
         [DisplayName("Enable rainbow braces")]
         [Description("Allows you to toggle the rainbow braces on and off.")]
         [DefaultValue(true)]
+        [Browsable(false)]
         public bool Enabled { get; set; } = true;
-
-        [Category("General")]
-        [DisplayName("Max line length")]
-        [Description("Maximum line count for files to enable colorization. For performance reasons, we don't want to colorize huge files")]
-        [DefaultValue(3000)]
-        public int MaxBufferLines { get; set; } = 3000;
 
         [Category("General")]
         [DisplayName("Timeout (milliseconds)")]
