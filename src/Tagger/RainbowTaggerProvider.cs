@@ -10,6 +10,8 @@ namespace RainbowBraces
     [Export(typeof(IViewTaggerProvider))]
     [ContentType(ContentTypes.CPlusPlus)]
     [ContentType(ContentTypes.CSharp)]
+    [ContentType(ContentTypes.VisualBasic)]
+    [ContentType(ContentTypes.FSharp)]
     [ContentType(ContentTypes.Css)]
     [ContentType(ContentTypes.Less)]
     [ContentType(ContentTypes.Scss)]
