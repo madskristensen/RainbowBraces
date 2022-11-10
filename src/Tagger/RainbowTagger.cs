@@ -193,7 +193,7 @@ namespace RainbowBraces
             }
 
             _braces = pairs;
-            _tags = GenerateTagSpans(pairs);
+            _tags = GenerateTagSpans(pairs, options.CycleLength);
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
         }
 
@@ -206,13 +206,13 @@ namespace RainbowBraces
             }
         }
 
-        private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs)
+        private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs, int cycleLength)
         {
             List<ITagSpan<IClassificationTag>> tags = new();
 
             foreach (BracePair pair in pairs)
             {
-                IClassificationType classification = _registry.GetClassificationType(ClassificationTypes.GetName(pair.Level));
+                IClassificationType classification = _registry.GetClassificationType(ClassificationTypes.GetName(pair.Level, cycleLength));
                 ClassificationTag openTag = new(classification);
                 SnapshotSpan openSpan = new(_buffer.CurrentSnapshot, pair.Open);
                 tags.Add(new TagSpan<IClassificationTag>(openSpan, openTag));

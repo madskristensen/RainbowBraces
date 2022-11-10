@@ -25,6 +25,12 @@ namespace RainbowBraces
         [Browsable(false)]
         public int Timeout { get; set; } = 400;
 
+        [Category("General")]
+        [DisplayName("Cycle length")]
+        [Description("Coloring will repeat after this many nested braces.")]
+        [DefaultValue(4)]
+        public int CycleLength { get; set; } = 4;
+
         [Category("Braces and brackets")]
         [DisplayName("Colorize curly brackets { }")]
         [Description("Determines whether or not curly brackets should be colorized.")]
