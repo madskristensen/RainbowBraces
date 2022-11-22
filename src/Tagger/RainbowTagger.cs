@@ -137,11 +137,19 @@ namespace RainbowBraces
             if (changedLine.LineNumber > 0)
             {
                 // Use the cache for all brackets defined above the position of the change
-                pairs.AddRange(_braces.Where(p => p.Open.End <= visibleStart || p.Close.End <= visibleStart));
+                pairs.AddRange(_braces.Where(IsAboveChange));
 
                 foreach (BracePair pair in pairs)
                 {
                     pair.Close = pair.Close.End >= visibleStart ? _empty : pair.Close;
+                }
+
+                bool IsAboveChange(BracePair p)
+                {
+                    // empty spans can be ignored especially the [0..0) that would be always above change
+                    if (!p.Open.IsEmpty && p.Open.End <= visibleStart) return true;
+                    if (!p.Close.IsEmpty && p.Close.End <= visibleStart) return true;
+                    return false;
                 }
             }
 
