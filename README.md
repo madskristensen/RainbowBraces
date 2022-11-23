@@ -9,7 +9,7 @@
 Download this extension from the [Visual Studio Marketplace][marketplace]
 or get the [CI build][vsixgallery].
 
---------------------------------------
+----------------------------------------
 
 Colorizes matching brace pairs to make it easy to identify them and their scope. Works for curly brackets, parentheses, and square brackets. Inspired by the [Bracket pair colorization](https://developercommunity.visualstudio.com/t/Bracket-pair-colorization/1631048?space=8&ftype=idea&q=brackets) feature request for Visual Studio (please go vote for it).
 
