@@ -1,6 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-Console.WriteLine("Ranbow Braces Test Project");
+Console.WriteLine("Rainbow Braces Test Project");
 Console.WriteLine("Load project in Visual Studio to illustrate");
 
 // Colors begin repeating after Cycle length value (range: 1-9)
