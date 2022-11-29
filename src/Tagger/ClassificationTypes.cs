@@ -134,7 +134,7 @@ namespace RainbowBraces
         public Level4()
         {
             // Resistor code: Yellow=4
-            ForegroundColor = Colors.Goldenrod;
+            ForegroundColor = Colors.DarkKhaki;
             DisplayName = ClassificationTypes.Level4;
         }
     }
