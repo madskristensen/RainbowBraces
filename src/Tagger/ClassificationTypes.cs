@@ -68,6 +68,17 @@ namespace RainbowBraces
         internal static ClassificationTypeDefinition Level9Classification = null;
     }
 
+    /// <remarks>
+    /// Colors in this class have been selected to resemble the resistor
+    /// color code and can easily be seen on both dark and light themes.
+    /// 
+    /// Resistor color code:
+    /// https://eepower.com/resistor-guide/resistor-standards-and-codes/resistor-color-code
+    /// 
+    /// Named media colors:
+    /// https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors
+    /// </remarks>
+
     [Export(typeof(EditorFormatDefinition))]
     [ClassificationType(ClassificationTypeNames = ClassificationTypes.Level1)]
     [Name(ClassificationTypes.Level1)]
@@ -77,7 +88,8 @@ namespace RainbowBraces
     {
         public Level1()
         {
-            ForegroundColor = Color.FromArgb(0xff, 0xff, 0x99, 0x00);
+            // Resistor code: Brown=1
+            ForegroundColor = Colors.Peru;
             DisplayName = ClassificationTypes.Level1;
         }
     }
@@ -91,6 +103,7 @@ namespace RainbowBraces
     {
         public Level2()
         {
+            // Resistor code: Red=2
             ForegroundColor = Colors.OrangeRed;
             DisplayName = ClassificationTypes.Level2;
         }
@@ -105,7 +118,8 @@ namespace RainbowBraces
     {
         public Level3()
         {
-            ForegroundColor = Colors.PaleVioletRed;
+            // Resistor code: Orange=3
+            ForegroundColor = Colors.Orange;
             DisplayName = ClassificationTypes.Level3;
         }
     }
@@ -119,7 +133,8 @@ namespace RainbowBraces
     {
         public Level4()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: Yellow=4
+            ForegroundColor = Colors.DarkKhaki;
             DisplayName = ClassificationTypes.Level4;
         }
     }
@@ -133,7 +148,8 @@ namespace RainbowBraces
     {
         public Level5()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: Green=5
+            ForegroundColor = Colors.LightSeaGreen;
             DisplayName = ClassificationTypes.Level5;
         }
     }
@@ -147,7 +163,8 @@ namespace RainbowBraces
     {
         public Level6()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: Blue=6
+            ForegroundColor = Colors.DodgerBlue;
             DisplayName = ClassificationTypes.Level6;
         }
     }
@@ -161,7 +178,8 @@ namespace RainbowBraces
     {
         public Level7()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: Violet=7
+            ForegroundColor = Colors.Violet;
             DisplayName = ClassificationTypes.Level7;
         }
     }
@@ -175,7 +193,8 @@ namespace RainbowBraces
     {
         public Level8()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: Gray=8
+            ForegroundColor = Colors.SlateGray;
             DisplayName = ClassificationTypes.Level8;
         }
     }
@@ -189,7 +208,8 @@ namespace RainbowBraces
     {
         public Level9()
         {
-            ForegroundColor = Colors.OliveDrab;
+            // Resistor code: White=9
+            ForegroundColor = Colors.LightSteelBlue;
             DisplayName = ClassificationTypes.Level9;
         }
     }
