@@ -17,7 +17,7 @@ namespace RainbowBraces
         private const int _overflow = 200;
 
         private readonly ITextBuffer _buffer;
-        private readonly ITextView _view;
+        private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
         private readonly Debouncer _debouncer;
@@ -30,16 +30,14 @@ namespace RainbowBraces
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
         {
             _buffer = buffer;
-            _view = view;
             _registry = registry;
             _aggregator = aggregator;
             _isEnabled = General.Instance.Enabled;
             _debouncer = new(General.Instance.Timeout);
 
             _buffer.Changed += OnBufferChanged;
-            view.Closed += OnViewClosed;
-            view.LayoutChanged += View_LayoutChanged;
             General.Saved += OnSettingsSaved;
+            AddView(view);
 
             if (_isEnabled)
             {
@@ -49,6 +47,27 @@ namespace RainbowBraces
                     HandleRatingPrompt();
                 }, VsTaskRunContext.UIThreadIdlePriority).FireAndForget();
             }
+        }
+
+        public void AddView(ITextView view)
+        {
+            if (view.IsClosed) return;
+            if (_views.Contains(view)) return;
+
+            view.Closed += OnViewClosed;
+            view.LayoutChanged += View_LayoutChanged;
+            _views.Add(view);
+        }
+
+        private void RemoveView(ITextView view)
+        {
+            view.Closed -= OnViewClosed;
+            view.LayoutChanged -= View_LayoutChanged;
+            _views.Remove(view);
+            if (_views.Count != 0) return;
+
+            view.TextBuffer.Changed -= OnBufferChanged;
+            General.Saved -= OnSettingsSaved;
         }
 
         private void View_LayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
@@ -69,8 +88,8 @@ namespace RainbowBraces
             {
                 _braces.Clear();
                 _tags.Clear();
-                int visibleStart = _view.TextViewLines.First().Start.Position;
-                int visibleEnd = _view.TextViewLines.Last().End.Position;
+                int visibleStart = GetVisibleStart();
+                int visibleEnd = GetVisibleEnd();
                 TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             }
 
@@ -80,9 +99,7 @@ namespace RainbowBraces
         private void OnViewClosed(object sender, EventArgs e)
         {
             ITextView view = (ITextView)sender;
-            view.TextBuffer.Changed -= OnBufferChanged;
-            view.Closed -= OnViewClosed;
-            General.Saved -= OnSettingsSaved;
+            RemoveView(view);
         }
 
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
@@ -117,9 +134,10 @@ namespace RainbowBraces
                 return;
             }
 
-            int visibleStart = Math.Max(_view.TextViewLines.First().Start.Position - _overflow, 0);
-            int visibleEnd = Math.Min(_view.TextViewLines.Last().End.Position + _overflow, _buffer.CurrentSnapshot.Length);
+            int visibleStart = GetVisibleStart();
+            int visibleEnd = GetVisibleEnd();
             ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(topPosition);
+            int changeStart = changedLine.Start.Position;
 
             SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, visibleEnd);
             IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(wholeDocSpan)
@@ -147,8 +165,8 @@ namespace RainbowBraces
                 bool IsAboveChange(BracePair p)
                 {
                     // empty spans can be ignored especially the [0..0) that would be always above change
-                    if (!p.Open.IsEmpty && p.Open.End <= visibleStart) return true;
-                    if (!p.Close.IsEmpty && p.Close.End <= visibleStart) return true;
+                    if (!p.Open.IsEmpty && p.Open.End <= changeStart) return true;
+                    if (!p.Close.IsEmpty && p.Close.End <= changeStart) return true;
                     return false;
                 }
             }
@@ -256,6 +274,18 @@ namespace RainbowBraces
                     pair.Close = braceSpan;
                 }
             }
+        }
+
+        private int GetVisibleStart()
+        {
+            int visibleStart = Math.Max(_views.Min(view => view.TextViewLines.First().Start.Position) - _overflow, 0);
+            return visibleStart;
+        }
+
+        private int GetVisibleEnd()
+        {
+            int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, _buffer.CurrentSnapshot.Length);
+            return visibleEnd;
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
