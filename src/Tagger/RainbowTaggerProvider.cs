@@ -42,16 +42,18 @@ namespace RainbowBraces
             {
                 return null;
             }
-
+            
             _isProcessing = true;
 
             try
             {
-                return buffer.Properties.GetOrCreateSingletonProperty(() =>
+                ITagger<T> result = buffer.Properties.GetOrCreateSingletonProperty(() =>
                 {
                     ITagAggregator< IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
                     return new RainbowTagger(textView, buffer, _registry, aggregator);
                 }) as ITagger<T>;
+                (result as RainbowTagger)?.AddView(textView);
+                return result;
             }
             finally
             {
