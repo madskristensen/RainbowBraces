@@ -23,6 +23,7 @@ namespace RainbowBraces
     [ContentType("php")]
     [ContentType("phalanger")]
     [ContentType("Code++")]
+    [ContentType("XSharp")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
