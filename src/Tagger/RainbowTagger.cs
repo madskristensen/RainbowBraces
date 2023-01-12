@@ -157,14 +157,18 @@ namespace RainbowBraces
                 // Use the cache for all brackets defined above the position of the change
                 pairs.AddRange(_braces.Where(IsAboveChange));
 
+                // Discard all cached closing braces after first change becouse it could not match anymore
                 foreach (BracePair pair in pairs)
                 {
-                    pair.Close = pair.Close.End >= visibleStart ? _empty : pair.Close;
+                    if (pair.Close.End >= changeStart)
+                    {
+                        pair.Close = _empty;
+                    }
                 }
 
                 bool IsAboveChange(BracePair p)
                 {
-                    // empty spans can be ignored especially the [0..0) that would be always above change
+                    // Empty spans can be ignored especially the [0..0) that would be always above change
                     if (!p.Open.IsEmpty && p.Open.End <= changeStart) return true;
                     if (!p.Close.IsEmpty && p.Close.End <= changeStart) return true;
                     return false;
@@ -173,11 +177,13 @@ namespace RainbowBraces
 
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                if ((changedLine.LineNumber > 0 && (line.End < visibleStart) || line.Extent.IsEmpty))
+                // Ignore any line above change becouse it is already cached and ignore empty lines
+                if ((changedLine.LineNumber > 0 && (line.End < changeStart) || line.Extent.IsEmpty))
                 {
                     continue;
                 }
 
+                // Scan line if it contains any braces
                 string text = line.GetText();
                 MatchCollection matches = _regex.Matches(text);
 
@@ -191,6 +197,7 @@ namespace RainbowBraces
                     char c = match.Value[0];
                     int position = line.Start + match.Index;
 
+                    // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
                     if (disallow.Any(s => s.Start <= position && s.End > position))
                     {
                         continue;
@@ -211,7 +218,7 @@ namespace RainbowBraces
                         BuildPairs(pairs, c, braceSpan, '[', ']');
                     }
                 }
-
+                
                 if (line.End >= visibleEnd || line.LineNumber >= _buffer.CurrentSnapshot.LineCount)
                 {
                     break;
