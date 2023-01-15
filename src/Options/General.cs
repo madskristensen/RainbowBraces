@@ -49,6 +49,11 @@ namespace RainbowBraces
         [DefaultValue(true)]
         public bool SquareBrackets { get; set; } = true;
 
+        [Category("Braces and brackets")]
+        [DisplayName("(Experimental) Colorize vertical lines between { }")]
+        [Description("Determines whether or not colorize vertical linese between curly brackets with the same color as curly brackets pair. Feature is still work in progress.")]
+        [DefaultValue(false)]
+        public bool VerticalAdornments { get; set; } = false;
 
         // Used for the rating prompt
         [Browsable(false)]

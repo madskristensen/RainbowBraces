@@ -25,6 +25,14 @@
     {
       "pathOnDisk": "art/theme-colors.png",
       "targetPath": "art/theme-colors.png"
+    },
+    {
+      "pathOnDisk": "art/vertical-adornments.png",
+      "targetPath": "art/vertical-adornments.png"
+    },
+    {
+      "pathOnDisk": "art/vertical-adornments-options.png",
+      "targetPath": "art/vertical-adornments-options.png"
     }
   ],
   "overview": "README.md",

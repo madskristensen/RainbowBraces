@@ -1,13 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
+using Match = System.Text.RegularExpressions.Match;
 
 namespace RainbowBraces
 {
@@ -20,6 +24,7 @@ namespace RainbowBraces
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private readonly IClassificationFormatMapService _formatMap;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private List<BracePair> _braces = new();
@@ -27,11 +32,12 @@ namespace RainbowBraces
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
         private static readonly Span _empty = new(0, 0);
 
-        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
+        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMap)
         {
             _buffer = buffer;
             _registry = registry;
             _aggregator = aggregator;
+            _formatMap = formatMap;
             _isEnabled = General.Instance.Enabled;
             _debouncer = new(General.Instance.Timeout);
 
@@ -218,7 +224,7 @@ namespace RainbowBraces
                         BuildPairs(pairs, c, braceSpan, '[', ']');
                     }
                 }
-                
+
                 if (line.End >= visibleEnd || line.LineNumber >= _buffer.CurrentSnapshot.LineCount)
                 {
                     break;
@@ -228,6 +234,7 @@ namespace RainbowBraces
             _braces = pairs;
             _tags = GenerateTagSpans(pairs, options.CycleLength);
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+            if (options.VerticalAdornments) ColorizeVerticalAdornmentsAsync().FireAndForget();
         }
 
         private void HandleRatingPrompt()
@@ -293,6 +300,66 @@ namespace RainbowBraces
         {
             int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, _buffer.CurrentSnapshot.Length);
             return visibleEnd;
+        }
+
+        /// <summary>
+        /// Feature to colorize vertical lines.
+        /// It uses internals of Visual Studio. Might not work at all or break at any point.
+        /// </summary>
+        private async Task ColorizeVerticalAdornmentsAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            foreach (ITextView view in _views)
+            {
+                try
+                {
+                    object canvas = view.GetType().GetRuntimeProperty("Content").GetValue(view); // Canvas
+                    IList children = (IList)canvas.GetType().GetRuntimeProperty("Children").GetValue(canvas); // UIElementCollection
+                    object adornmentsLayer = children[1]; // ViewStack
+                    IList adornments = (IList)adornmentsLayer.GetType().GetRuntimeProperty("Children").GetValue(adornmentsLayer); // UIElementCollection
+                    foreach (object adornment in adornments)
+                    {
+                        try
+                        {
+                            Type adornmentType = adornment.GetType();
+                            if (adornmentType.Name != "AdornmentLayer") continue;
+                            IList elements = (IList)adornmentType.GetRuntimeProperty("Elements").GetValue(adornment);
+                            foreach (object element in elements)
+                            {
+                                try
+                                {
+                                    Type elementType = element.GetType();
+                                    if (elementType.Name != "AdornmentAndData") continue;
+                                    if (elementType.GetRuntimeProperty("VisualSpan").GetValue(element) is not SnapshotSpan span) continue;
+                                    List<ITagSpan<IClassificationTag>> tags = _tags;
+                                    object line = elementType.GetRuntimeProperty("Adornment").GetValue(element);
+                                    Type lineType = line.GetType();
+                                    if (lineType.Name != "Line") continue;
+                                    ITagSpan<IClassificationTag> tag = tags.FirstOrDefault(tag => tag.Span.End == span.End);
+                                    if (tag == null) continue;
+                                    IClassificationType classification = tag.Tag.ClassificationType;
+                                    IClassificationFormatMap formatMap = _formatMap.GetClassificationFormatMap(view);
+                                    TextFormattingRunProperties formatProperties = formatMap.GetTextProperties(classification);
+                                    line.GetType().GetRuntimeProperty("Stroke").SetValue(line, formatProperties.ForegroundBrush);
+                                }
+                                catch
+                                {
+                                    // ignore exception
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // ignore exception
+                        }
+                    }
+                }
+                catch
+                {
+                    // ignore exception
+                }
+            }
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
