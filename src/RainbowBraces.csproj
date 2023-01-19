@@ -47,6 +47,9 @@
   <ItemGroup>
     <Compile Include="Commands\ToggleCommand.cs" />
     <Compile Include="Tagger\BracePair.cs" />
+    <Compile Include="Tagger\BracePairBuilder.cs" />
+    <Compile Include="Tagger\BracePairBuilderCollection.cs" />
+    <Compile Include="Tagger\BracePairCache.cs" />
     <Compile Include="Tagger\ClassificationTypes.cs" />
     <Compile Include="Helper\Debouncer.cs" />
     <Compile Include="Options\General.cs" />
@@ -66,6 +69,7 @@
       <Generator>VsctGenerator</Generator>
       <LastGenOutput>VSCommandTable.cs</LastGenOutput>
     </VSCTCompile>
+    <Compile Include="Tagger\VerticalAdormentsColorizer.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
