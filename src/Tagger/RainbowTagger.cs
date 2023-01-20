@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Language.StandardClassification;
@@ -8,6 +9,7 @@ using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
+using Match = System.Text.RegularExpressions.Match;
 
 namespace RainbowBraces
 {
@@ -20,19 +22,21 @@ namespace RainbowBraces
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private readonly VerticalAdormentsColorizer _verticalAdormentsColorizer;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
-        private List<BracePair> _braces = new();
+        private readonly BracePairCache _pairsCache = new();
         private bool _isEnabled;
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
-        private static readonly Span _empty = new(0, 0);
+        private static Regex _specializedRegex;
 
-        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator)
+        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMap)
         {
             _buffer = buffer;
             _registry = registry;
             _aggregator = aggregator;
-            _isEnabled = General.Instance.Enabled;
+            _verticalAdormentsColorizer = new(formatMap);
+            _isEnabled = IsEnabled(General.Instance);
             _debouncer = new(General.Instance.Timeout);
 
             _buffer.Changed += OnBufferChanged;
@@ -86,14 +90,15 @@ namespace RainbowBraces
             }
             else
             {
-                _braces.Clear();
+                _pairsCache.Clear();
                 _tags.Clear();
+                _specializedRegex = null;
                 int visibleStart = GetVisibleStart();
                 int visibleEnd = GetVisibleEnd();
                 TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             }
 
-            _isEnabled = settings.Enabled;
+            _isEnabled = IsEnabled(settings);
         }
 
         private void OnViewClosed(object sender, EventArgs e)
@@ -140,52 +145,79 @@ namespace RainbowBraces
             int changeStart = changedLine.Start.Position;
 
             SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, visibleEnd);
-            IEnumerable<SnapshotSpan> disallow = _aggregator.GetTags(wholeDocSpan)
+            SnapshotSpan[] allDisallow = _aggregator.GetTags(wholeDocSpan)
                                                      .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
                                                                  !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
                                                                  !t.Tag.ClassificationType.IsOfType("XAML Delimiter") &&
                                                                  !t.Tag.ClassificationType.IsOfType("SQL Operator"))
-                                                     .SelectMany(d => d.Span.GetSpans(_buffer)).ToArray();
+                                                     .SelectMany(d => d.Span.GetSpans(_buffer)).Where(s => !s.IsEmpty).ToArray();
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
 
-            List<BracePair> pairs = new();
+            BracePairBuilderCollection builders = new();
+            if (options.Parentheses) builders.AddBuilder('(', ')');
+            if (options.CurlyBrackets) builders.AddBuilder('{', '}');
+            if (options.SquareBrackets) builders.AddBuilder('[', ']');
+
+            // If not selected all braces use specialized regex for only selected ones
+            Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets
+                ? _regex
+                : _specializedRegex ??= BuildRegex(options);
+
+            // Prepare structure of all disallowed tag spans for faster linear processing
+            (Span Span, int Index)[] indexedDisallow = allDisallow.Select((s, i) => (s.Span, i)).ToArray();
+            (Span Span, int Index)[] disallowFromStart = indexedDisallow.OrderBy(s => s.Span.Start).ToArray();
+            (Span Span, int Index)[] disallowFromEnd = indexedDisallow.OrderBy(d => d.Span.End).ToArray();
+            int fromStartAdd = 0;
+            int fromEndRemove = 0;
+            Dictionary<int, Span> possibleDisallowIndicies = new();
 
             if (changedLine.LineNumber > 0)
             {
-                // Use the cache for all brackets defined above the position of the change
-                pairs.AddRange(_braces.Where(IsAboveChange));
-
-                // Discard all cached closing braces after first change becouse it could not match anymore
-                foreach (BracePair pair in pairs)
-                {
-                    if (pair.Close.End >= changeStart)
-                    {
-                        pair.Close = _empty;
-                    }
-                }
-
-                bool IsAboveChange(BracePair p)
-                {
-                    // Empty spans can be ignored especially the [0..0) that would be always above change
-                    if (!p.Open.IsEmpty && p.Open.End <= changeStart) return true;
-                    if (!p.Close.IsEmpty && p.Close.End <= changeStart) return true;
-                    return false;
-                }
+                builders.LoadFromCache(_pairsCache, changeStart);
             }
 
             foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
             {
-                // Ignore any line above change becouse it is already cached and ignore empty lines
-                if ((changedLine.LineNumber > 0 && (line.End < changeStart) || line.Extent.IsEmpty))
+                // Ignore ignore empty lines
+                if (line.Extent.IsEmpty)
+                {
+                    continue;
+                }
+
+                int lineStart = line.Start;
+                int lineEnd = line.End;
+
+                // Remove all disallowed tags with end before this line
+                while (true)
+                {
+                    if (fromEndRemove >= disallowFromEnd.Length) break;
+                    (Span Span, int Index) indexedSpan = disallowFromEnd[fromEndRemove];
+                    if (indexedSpan.Span.End >= lineStart) break;
+                    possibleDisallowIndicies.Remove(indexedSpan.Index);
+                    fromEndRemove++;
+                }
+
+                // Add all disallowed tags with start on this line
+                while (true)
+                {
+                    if (fromStartAdd >= disallowFromStart.Length) break;
+                    (Span Span, int Index) indexedSpan = disallowFromStart[fromStartAdd];
+                    if (indexedSpan.Span.Start > lineEnd) break;
+                    possibleDisallowIndicies.Add(indexedSpan.Index, indexedSpan.Span);
+                    fromStartAdd++;
+                }
+
+                // Ignore any line above change becouse it is already cached
+                if ((changedLine.LineNumber > 0 && (lineEnd < changeStart)))
                 {
                     continue;
                 }
 
                 // Scan line if it contains any braces
                 string text = line.GetText();
-                MatchCollection matches = _regex.Matches(text);
+                MatchCollection matches = regex.Matches(text);
 
                 if (matches.Count == 0)
                 {
@@ -198,36 +230,30 @@ namespace RainbowBraces
                     int position = line.Start + match.Index;
 
                     // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
-                    if (disallow.Any(s => s.Start <= position && s.End > position))
+                    if (possibleDisallowIndicies.Values.Any(s => s.Start <= position && s.End > position))
                     {
                         continue;
                     }
 
                     Span braceSpan = new(position, 1);
 
-                    if (options.Parentheses && (c == '(' || c == ')'))
+                    // Try all builders if any can accept matched brace
+                    foreach (BracePairBuilder braceBuilder in builders)
                     {
-                        BuildPairs(pairs, c, braceSpan, '(', ')');
-                    }
-                    else if (options.CurlyBrackets && (c == '{' || c == '}'))
-                    {
-                        BuildPairs(pairs, c, braceSpan, '{', '}');
-                    }
-                    else if (options.SquareBrackets && (c == '[' || c == ']'))
-                    {
-                        BuildPairs(pairs, c, braceSpan, '[', ']');
+                        if (braceBuilder.TryAdd(c, braceSpan)) break;
                     }
                 }
-                
+
                 if (line.End >= visibleEnd || line.LineNumber >= _buffer.CurrentSnapshot.LineCount)
                 {
                     break;
                 }
             }
 
-            _braces = pairs;
-            _tags = GenerateTagSpans(pairs, options.CycleLength);
+            builders.SaveToCache(_pairsCache);
+            _tags = GenerateTagSpans(builders.SelectMany(b => b.Pairs), options.CycleLength);
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+            if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 
         private void HandleRatingPrompt()
@@ -258,31 +284,6 @@ namespace RainbowBraces
             return tags;
         }
 
-        private void BuildPairs(List<BracePair> pairs, char match, Span braceSpan, char open, char close)
-        {
-            if (pairs.Any(p => p.Close == braceSpan || p.Open == braceSpan))
-            {
-                return;
-            }
-
-            int level = pairs.Count(p => p.Close.IsEmpty) + 1;
-            BracePair pair = new() { Level = level };
-
-            if (match == open)
-            {
-                pair.Open = braceSpan;
-                pairs.Add(pair);
-            }
-            else if (match == close)
-            {
-                pair = pairs.Where(kvp => kvp.Close.IsEmpty).LastOrDefault();
-                if (pair != null)
-                {
-                    pair.Close = braceSpan;
-                }
-            }
-        }
-
         private int GetVisibleStart()
         {
             int visibleStart = Math.Max(_views.Min(view => view.TextViewLines.First().Start.Position) - _overflow, 0);
@@ -293,6 +294,34 @@ namespace RainbowBraces
         {
             int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, _buffer.CurrentSnapshot.Length);
             return visibleEnd;
+        }
+
+        /// <summary>
+        /// Returns whether is enabled globally by settings and any brace is enabled or not.
+        /// </summary>
+        private static bool IsEnabled(General settings) => settings.Enabled && (settings.Parentheses || settings.CurlyBrackets || settings.SquareBrackets);
+
+        /// <summary>
+        /// Create specialized regex for only partial of braces.
+        /// </summary>
+        private static Regex BuildRegex(General options)
+        {
+            StringBuilder pattern = new (10);
+            pattern.Append('[');
+            if (options.Parentheses) pattern.Append(@"\(\)");
+            if (options.CurlyBrackets) pattern.Append(@"\{\}");
+            if (options.SquareBrackets) pattern.Append(@"\[\]");
+            pattern.Append(']');
+            return new Regex(pattern.ToString(), RegexOptions.Compiled);
+        }
+
+        /// <summary>
+        /// Feature to colorize vertical lines.
+        /// It uses internals of Visual Studio. Might not work at all or break at any point.
+        /// </summary>
+        private void ColorizeVerticalAdornments()
+        {
+            _verticalAdormentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;

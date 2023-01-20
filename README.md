@@ -31,6 +31,11 @@ There are also a few other specific options available under the **Fonts and Colo
 
 ![Options2](art/options2.png)
 
+### Colorize vertical lines (Experimental feature)
+
+![VerticalLines](art/vertical-adornments.png)
+![VerticalLinesOptions](art/vertical-adornments-options.png)
+
 For more advanced features, I recommend the free [Viasfora extension](https://marketplace.visualstudio.com/items?itemName=TomasRestrepo.Viasfora) by [Tomas Restrepo](https://twitter.com/tomasrestrepo).
 
 ## How can I help?

@@ -34,6 +34,9 @@ namespace RainbowBraces
         [Import]
         internal IViewTagAggregatorFactoryService _aggregator = null;
 
+        [Import]
+        internal IClassificationFormatMapService _formatMap = null;
+
         private bool _isProcessing;
 
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
@@ -43,15 +46,15 @@ namespace RainbowBraces
             {
                 return null;
             }
-            
+
             _isProcessing = true;
 
             try
             {
                 ITagger<T> result = buffer.Properties.GetOrCreateSingletonProperty(() =>
                 {
-                    ITagAggregator< IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
-                    return new RainbowTagger(textView, buffer, _registry, aggregator);
+                    ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
+                    return new RainbowTagger(textView, buffer, _registry, aggregator, _formatMap);
                 }) as ITagger<T>;
                 (result as RainbowTagger)?.AddView(textView);
                 return result;
