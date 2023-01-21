@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Windows.Media;
 
@@ -30,6 +31,7 @@ namespace RainbowBraces
 
         private readonly IClassificationFormatMapService _formatMap;
         private Dictionary<int, IClassificationTag> _tags;
+        private HashSet<ITextView> _views = new();
 
         static VerticalAdormentsColorizer()
         {
@@ -54,7 +56,9 @@ namespace RainbowBraces
         {
             _formatMap = formatMap;
         }
-        
+
+        public bool Enabled { get; set; } = true;
+
         public async Task ColorizeVerticalAdornmentsAsync(IReadOnlyCollection<ITextView> views, List<ITagSpan<IClassificationTag>> tags)
         {
             if (_failedReflection) return;
@@ -64,6 +68,12 @@ namespace RainbowBraces
 
             foreach (ITextView view in views)
             {
+                if (view.IsClosed) continue;
+
+                // Register view if wasn't
+                RegisterView(view);
+
+                // And colorize vertical lines because tags could get changed
                 ProcessView(view);
             }
         }
@@ -81,6 +91,7 @@ namespace RainbowBraces
 
         private void ProcessView(ITextView view)
         {
+            if (!Enabled) return;
             try
             {
                 if (!_wpfTextViewContent.TryGet(view, out object canvas)) return;
@@ -119,9 +130,9 @@ namespace RainbowBraces
         {
             try
             {
-                if (!_adornmentAndDataVisualSpan.TryGet(element, out SnapshotSpan? span) || span == null) return;
                 if (!_adornmentAndDataAdornment.TryGet(element, out object line)) return;
                 if (!_lineType.IsOfType(line)) return;
+                if (!_adornmentAndDataVisualSpan.TryGet(element, out SnapshotSpan? span) || span == null) return;
                 if (!_tags.TryGetValue(span.Value.End.Position, out IClassificationTag tag)) return;
                 Brush color = GetColor(tag, view);
                 if (!_lineStroke.TrySet(line, color)) return;
@@ -146,6 +157,46 @@ namespace RainbowBraces
             }
 
             return brush;
+        }
+
+        private void RegisterView(ITextView view)
+        {
+            // If view wasn't registered yet subscribe to event handlers
+            if (_views.Add(view))
+            {
+                view.Closed += View_OnClosed;
+                view.LayoutChanged += View_OnLayoutChanged;
+            }
+        }
+
+        private void View_OnClosed(object sender, EventArgs e)
+        {
+            ITextView view = (ITextView)sender;
+
+            // Unregister view and unsubscribe all handlers
+            _views.Remove(view);
+            view.Closed -= View_OnClosed;
+            view.LayoutChanged -= View_OnLayoutChanged;
+        }
+
+        private void View_OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
+        {
+            if (!Enabled) return;
+
+            ITextView view = (ITextView)sender;
+            if (_tags is not { Count: > 0 }) return;
+
+            // Colorize vertical lines as soon as possible to reduce flickering
+            ProcessView(view);
+
+            // But not all vertical lines are constructed yet so wait some time and do the second pass
+            Task.Run(
+                async () =>
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(10));
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ProcessView(view);
+                });
         }
 
         private static void OnSettingsSaved(General obj)
