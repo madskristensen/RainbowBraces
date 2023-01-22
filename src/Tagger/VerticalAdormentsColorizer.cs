@@ -68,8 +68,6 @@ namespace RainbowBraces
 
             foreach (ITextView view in views)
             {
-                if (view.IsClosed) continue;
-
                 // Register view if wasn't
                 RegisterView(view);
 
@@ -92,6 +90,8 @@ namespace RainbowBraces
         private void ProcessView(ITextView view)
         {
             if (!Enabled) return;
+            if (view.IsClosed) return;
+
             try
             {
                 if (!_wpfTextViewContent.TryGet(view, out object canvas)) return;
@@ -161,6 +161,8 @@ namespace RainbowBraces
 
         private void RegisterView(ITextView view)
         {
+            if (view.IsClosed) return;
+
             // If view wasn't registered yet subscribe to event handlers
             if (_views.Add(view))
             {
