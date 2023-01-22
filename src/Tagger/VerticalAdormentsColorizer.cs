@@ -87,6 +87,17 @@ namespace RainbowBraces
             _tags = tagsByPosition;
         }
 
+        private void DelayedProcessView(ITextView view, int delay)
+        {
+            Task.Run(
+                async () =>
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(delay));
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ProcessView(view);
+                }).FireAndForget();
+        }
+
         private void ProcessView(ITextView view)
         {
             if (!Enabled) return;
@@ -159,6 +170,12 @@ namespace RainbowBraces
             return brush;
         }
 
+        public async Task RegisterViewAsync(ITextView view)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            RegisterView(view);
+        }
+
         private void RegisterView(ITextView view)
         {
             if (view.IsClosed) return;
@@ -168,7 +185,17 @@ namespace RainbowBraces
             {
                 view.Closed += View_OnClosed;
                 view.LayoutChanged += View_OnLayoutChanged;
+                view.GotAggregateFocus += View_OnGotAggregateFocus;
             }
+        }
+
+        private void View_OnGotAggregateFocus(object sender, EventArgs e)
+        {
+            ITextView view = (ITextView)sender;
+
+            // When switching between tabs the view is recreated and vertical lines show up after some delay
+            // In this case we can wait a little longer to show vertical lines
+            DelayedProcessView(view, 1000);
         }
 
         private void View_OnClosed(object sender, EventArgs e)
@@ -179,6 +206,7 @@ namespace RainbowBraces
             _views.Remove(view);
             view.Closed -= View_OnClosed;
             view.LayoutChanged -= View_OnLayoutChanged;
+            view.GotAggregateFocus -= View_OnGotAggregateFocus;
         }
 
         private void View_OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
@@ -192,13 +220,7 @@ namespace RainbowBraces
             ProcessView(view);
 
             // But not all vertical lines are constructed yet so wait some time and do the second pass
-            Task.Run(
-                async () =>
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(10));
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    ProcessView(view);
-                });
+            DelayedProcessView(view, 10);
         }
 
         private static void OnSettingsSaved(General obj)

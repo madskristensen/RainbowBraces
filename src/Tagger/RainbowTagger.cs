@@ -59,6 +59,8 @@ namespace RainbowBraces
 
         public void AddView(ITextView view)
         {
+            _verticalAdormentsColorizer.RegisterViewAsync(view).FireAndForget();
+
             if (view.IsClosed) return;
             if (_views.Contains(view)) return;
 
