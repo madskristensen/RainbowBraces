@@ -26,7 +26,10 @@ namespace RainbowBraces
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
+        private readonly List<IMappingTagSpan<IClassificationTag>> _tagList = new();
+        private readonly List<SnapshotSpan> _spanList = new();
         private bool _isEnabled;
+        private bool _scanWholeFile;
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
 
@@ -37,6 +40,7 @@ namespace RainbowBraces
             _aggregator = aggregator;
             _verticalAdormentsColorizer = new(formatMap);
             _isEnabled = IsEnabled(General.Instance);
+            _scanWholeFile = General.Instance.VerticalAdornments;
             _debouncer = new(General.Instance.Timeout);
 
             _buffer.Changed += OnBufferChanged;
@@ -55,6 +59,8 @@ namespace RainbowBraces
 
         public void AddView(ITextView view)
         {
+            _verticalAdormentsColorizer.RegisterViewAsync(view).FireAndForget();
+
             if (view.IsClosed) return;
             if (_views.Contains(view)) return;
 
@@ -76,6 +82,7 @@ namespace RainbowBraces
 
         private void View_LayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
+            if (_scanWholeFile) return;
             if (_isEnabled && (e.VerticalTranslation || e.HorizontalTranslation))
             {
                 _debouncer.Debouce(() => { _ = ParseAsync(); });
@@ -86,6 +93,7 @@ namespace RainbowBraces
         {
             if (settings.Enabled)
             {
+                _scanWholeFile = settings.VerticalAdornments;
                 ParseAsync().FireAndForget();
             }
             else
@@ -93,12 +101,14 @@ namespace RainbowBraces
                 _pairsCache.Clear();
                 _tags.Clear();
                 _specializedRegex = null;
+                _scanWholeFile = false;
                 int visibleStart = GetVisibleStart();
                 int visibleEnd = GetVisibleEnd();
                 TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             }
 
             _isEnabled = IsEnabled(settings);
+            _verticalAdormentsColorizer.Enabled = settings.VerticalAdornments && _isEnabled;
         }
 
         private void OnViewClosed(object sender, EventArgs e)
@@ -145,16 +155,28 @@ namespace RainbowBraces
             int changeStart = changedLine.Start.Position;
 
             SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, visibleEnd);
-            SnapshotSpan[] allDisallow = _aggregator.GetTags(wholeDocSpan)
-                                                     .Where(t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
-                                                                 !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
-                                                                 !t.Tag.ClassificationType.IsOfType("XAML Delimiter") &&
-                                                                 !t.Tag.ClassificationType.IsOfType("SQL Operator"))
-                                                     .SelectMany(d => d.Span.GetSpans(_buffer)).Where(s => !s.IsEmpty).ToArray();
+
+            // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
+            // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
+            _tagList.Clear();
+            _tagList.AddRange(_aggregator.GetTags(wholeDocSpan));
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
 
+            // Filter tags and get their spans
+            _spanList.Clear();
+            _spanList.AddRange(_tagList
+                .Where(
+                    t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
+                         !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
+                         !t.Tag.ClassificationType.IsOfType("XAML Delimiter") &&
+                         !t.Tag.ClassificationType.IsOfType("SQL Operator"))
+                .SelectMany(d => d.Span.GetSpans(_buffer))
+                .Where(s => !s.IsEmpty));
+            IList<SnapshotSpan> allDisallow = _spanList;
+
+            // Create builders for each brace type
             BracePairBuilderCollection builders = new();
             if (options.Parentheses) builders.AddBuilder('(', ')');
             if (options.CurlyBrackets) builders.AddBuilder('{', '}');
@@ -171,7 +193,7 @@ namespace RainbowBraces
             (Span Span, int Index)[] disallowFromEnd = indexedDisallow.OrderBy(d => d.Span.End).ToArray();
             int fromStartAdd = 0;
             int fromEndRemove = 0;
-            Dictionary<int, Span> possibleDisallowIndicies = new();
+            Dictionary<int, Span> possibleDisallow = new();
 
             if (changedLine.LineNumber > 0)
             {
@@ -195,7 +217,7 @@ namespace RainbowBraces
                     if (fromEndRemove >= disallowFromEnd.Length) break;
                     (Span Span, int Index) indexedSpan = disallowFromEnd[fromEndRemove];
                     if (indexedSpan.Span.End >= lineStart) break;
-                    possibleDisallowIndicies.Remove(indexedSpan.Index);
+                    possibleDisallow.Remove(indexedSpan.Index);
                     fromEndRemove++;
                 }
 
@@ -205,7 +227,7 @@ namespace RainbowBraces
                     if (fromStartAdd >= disallowFromStart.Length) break;
                     (Span Span, int Index) indexedSpan = disallowFromStart[fromStartAdd];
                     if (indexedSpan.Span.Start > lineEnd) break;
-                    possibleDisallowIndicies.Add(indexedSpan.Index, indexedSpan.Span);
+                    possibleDisallow.Add(indexedSpan.Index, indexedSpan.Span);
                     fromStartAdd++;
                 }
 
@@ -230,7 +252,7 @@ namespace RainbowBraces
                     int position = line.Start + match.Index;
 
                     // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
-                    if (possibleDisallowIndicies.Values.Any(s => s.Start <= position && s.End > position))
+                    if (possibleDisallow.Values.Any(s => s.Start <= position && s.End > position))
                     {
                         continue;
                     }
@@ -286,12 +308,16 @@ namespace RainbowBraces
 
         private int GetVisibleStart()
         {
+            if (_scanWholeFile) return 0;
+
             int visibleStart = Math.Max(_views.Min(view => view.TextViewLines.First().Start.Position) - _overflow, 0);
             return visibleStart;
         }
 
         private int GetVisibleEnd()
         {
+            if (_scanWholeFile) return _buffer.CurrentSnapshot.Length;
+
             int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, _buffer.CurrentSnapshot.Length);
             return visibleEnd;
         }
