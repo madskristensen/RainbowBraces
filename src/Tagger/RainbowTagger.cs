@@ -22,7 +22,7 @@ namespace RainbowBraces
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
-        private readonly VerticalAdormentsColorizer _verticalAdormentsColorizer;
+        private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
@@ -35,7 +35,7 @@ namespace RainbowBraces
             _buffer = buffer;
             _registry = registry;
             _aggregator = aggregator;
-            _verticalAdormentsColorizer = new(formatMap);
+            _verticalAdornmentsColorizer = new(formatMap);
             _isEnabled = IsEnabled(General.Instance);
             _debouncer = new(General.Instance.Timeout);
 
@@ -321,7 +321,7 @@ namespace RainbowBraces
         /// </summary>
         private void ColorizeVerticalAdornments()
         {
-            _verticalAdormentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
+            _verticalAdornmentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
