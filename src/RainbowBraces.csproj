@@ -69,7 +69,7 @@
       <Generator>VsctGenerator</Generator>
       <LastGenOutput>VSCommandTable.cs</LastGenOutput>
     </VSCTCompile>
-    <Compile Include="Tagger\VerticalAdornmentsColorizer.cs" />
+    <Compile Include="Tagger\VerticalAdormentsColorizer.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
