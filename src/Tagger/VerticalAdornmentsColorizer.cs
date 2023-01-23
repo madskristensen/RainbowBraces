@@ -11,7 +11,7 @@ using System.Windows.Media;
 
 namespace RainbowBraces
 {
-    internal class VerticalAdormentsColorizer
+    internal class VerticalAdornmentsColorizer
     {
         private static bool _failedReflection;
         private static readonly CachedType _wpfTextViewType;
@@ -31,9 +31,9 @@ namespace RainbowBraces
 
         private readonly IClassificationFormatMapService _formatMap;
         private Dictionary<int, IClassificationTag> _tags;
-        private HashSet<ITextView> _views = new();
+        private readonly HashSet<ITextView> _views = new();
 
-        static VerticalAdormentsColorizer()
+        static VerticalAdornmentsColorizer()
         {
             _wpfTextViewType = new("WpfTextView");
             _wpfTextViewContent = new("Content", _wpfTextViewType);
@@ -52,7 +52,7 @@ namespace RainbowBraces
             General.Saved += OnSettingsSaved;
         }
 
-        public VerticalAdormentsColorizer(IClassificationFormatMapService formatMap)
+        public VerticalAdornmentsColorizer(IClassificationFormatMapService formatMap)
         {
             _formatMap = formatMap;
         }

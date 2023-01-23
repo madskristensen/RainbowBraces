@@ -22,7 +22,7 @@ namespace RainbowBraces
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
-        private readonly VerticalAdormentsColorizer _verticalAdormentsColorizer;
+        private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
@@ -38,7 +38,7 @@ namespace RainbowBraces
             _buffer = buffer;
             _registry = registry;
             _aggregator = aggregator;
-            _verticalAdormentsColorizer = new(formatMap);
+            _verticalAdornmentsColorizer = new(formatMap);
             _isEnabled = IsEnabled(General.Instance);
             _scanWholeFile = General.Instance.VerticalAdornments;
             _debouncer = new(General.Instance.Timeout);
@@ -59,7 +59,7 @@ namespace RainbowBraces
 
         public void AddView(ITextView view)
         {
-            _verticalAdormentsColorizer.RegisterViewAsync(view).FireAndForget();
+            _verticalAdornmentsColorizer.RegisterViewAsync(view).FireAndForget();
 
             if (view.IsClosed) return;
             if (_views.Contains(view)) return;
@@ -108,7 +108,7 @@ namespace RainbowBraces
             }
 
             _isEnabled = IsEnabled(settings);
-            _verticalAdormentsColorizer.Enabled = settings.VerticalAdornments && _isEnabled;
+            _verticalAdornmentsColorizer.Enabled = settings.VerticalAdornments && _isEnabled;
         }
 
         private void OnViewClosed(object sender, EventArgs e)
@@ -347,7 +347,7 @@ namespace RainbowBraces
         /// </summary>
         private void ColorizeVerticalAdornments()
         {
-            _verticalAdormentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
+            _verticalAdornmentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
