@@ -30,7 +30,8 @@ namespace RainbowBraces
         private static Dictionary<string, Brush> _braceColors = new();
 
         private readonly IClassificationFormatMapService _formatMap;
-        private Dictionary<int, IClassificationTag> _tags;
+        private Dictionary<int, IClassificationTag> _tagsByStart;
+        private Dictionary<int, IClassificationTag> _tagsByEnd;
         private readonly HashSet<ITextView> _views = new();
 
         static VerticalAdornmentsColorizer()
@@ -78,13 +79,16 @@ namespace RainbowBraces
 
         private void ProcessTags(List<ITagSpan<IClassificationTag>> tags)
         {
-            Dictionary<int, IClassificationTag> tagsByPosition = new();
+            Dictionary<int, IClassificationTag> tagsByStartPosition = new();
+            Dictionary<int, IClassificationTag> tagsByEndPosition = new();
             foreach (ITagSpan<IClassificationTag> tagSpan in tags)
             {
-                tagsByPosition[tagSpan.Span.End.Position] = tagSpan.Tag;
+                tagsByStartPosition[tagSpan.Span.Start.Position] = tagSpan.Tag;
+                tagsByEndPosition[tagSpan.Span.End.Position] = tagSpan.Tag;
             }
 
-            _tags = tagsByPosition;
+            _tagsByStart = tagsByStartPosition;
+            _tagsByEnd = tagsByEndPosition;
         }
 
         private void DelayedProcessView(ITextView view, int delay)
@@ -144,7 +148,14 @@ namespace RainbowBraces
                 if (!_adornmentAndDataAdornment.TryGet(element, out object line)) return;
                 if (!_lineType.IsOfType(line)) return;
                 if (!_adornmentAndDataVisualSpan.TryGet(element, out SnapshotSpan? span) || span == null) return;
-                if (!_tags.TryGetValue(span.Value.End.Position, out IClassificationTag tag)) return;
+                if (!_tagsByEnd.TryGetValue(span.Value.End.Position, out IClassificationTag tag))
+                {
+                    // Try to find starting curly brackets in do { ... } while (...) construct
+                    string text = span.Value.Snapshot.GetText(span.Value);
+                    if (!text.StartsWith("do")) return;
+                    int index = text.IndexOf('{');
+                    if (index < 0 || !_tagsByStart.TryGetValue(index + span.Value.Start, out tag)) return;
+                }
                 Brush color = GetColor(tag, view);
                 if (!_lineStroke.TrySet(line, color)) return;
             }
@@ -214,7 +225,7 @@ namespace RainbowBraces
             if (!Enabled) return;
 
             ITextView view = (ITextView)sender;
-            if (_tags is not { Count: > 0 }) return;
+            if (_tagsByEnd is not { Count: > 0 }) return;
 
             // Colorize vertical lines as soon as possible to reduce flickering
             ProcessView(view);
