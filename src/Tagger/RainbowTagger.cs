@@ -167,11 +167,7 @@ namespace RainbowBraces
             // Filter tags and get their spans
             _spanList.Clear();
             _spanList.AddRange(_tagList
-                .Where(
-                    t => !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Punctuation) &&
-                         !t.Tag.ClassificationType.IsOfType(PredefinedClassificationTypeNames.Operator) &&
-                         !t.Tag.ClassificationType.IsOfType("XAML Delimiter") &&
-                         !t.Tag.ClassificationType.IsOfType("SQL Operator"))
+                .Where(IsDisallowedTag)
                 .SelectMany(d => d.Span.GetSpans(_buffer))
                 .Where(s => !s.IsEmpty));
             IList<SnapshotSpan> allDisallow = _spanList;
@@ -278,6 +274,58 @@ namespace RainbowBraces
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 
+        private static bool IsDisallowedTag(IMappingTagSpan<IClassificationTag> tagSpan)
+        {
+            IClassificationType tagType = tagSpan.Tag.ClassificationType;
+
+            if (tagType is ILayeredClassificationType layeredType)
+            {
+                if (IsAllowed(layeredType)) return false;
+                foreach (IClassificationType baseType in layeredType.BaseTypes)
+                {
+                    if (IsAllowed(baseType)) return false;
+                }
+            }
+            else if (IsAllowed(tagType)) return false;
+
+            return true;
+        }
+
+        private static bool IsAllowed(IClassificationType tagType)
+        {
+            if (tagType is ILayeredClassificationType layeredType) return IsAllowed(layeredType);
+            else
+            {
+                // Allow tags for braces
+                if (tagType.IsOfType(PredefinedClassificationTypeNames.Punctuation)) return true;
+                if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return true;
+                if (tagType.IsOfType("XAML Delimiter")) return true;
+                if (tagType.IsOfType("SQL Operator")) return true;
+                return false;
+            }
+        }
+
+        private static bool IsAllowed(ILayeredClassificationType layeredType)
+        {
+            string classification = layeredType.Classification;
+
+            // Allow tags for braces
+            bool isAllowed = classification switch
+            {
+                PredefinedClassificationTypeNames.Punctuation => true,
+                PredefinedClassificationTypeNames.Operator => true,
+                "XAML Delimiter" => true,
+                "SQL Operator" => true,
+                _ => false,
+            };
+            if (isAllowed) return true;
+
+            // Ignore tags for breakpoints
+            if (classification.Contains("Breakpoint")) return true;
+
+            return false;
+        }
+
         private void HandleRatingPrompt()
         {
             if (_tags.Count > 0)
@@ -332,7 +380,7 @@ namespace RainbowBraces
         /// </summary>
         private static Regex BuildRegex(General options)
         {
-            StringBuilder pattern = new (10);
+            StringBuilder pattern = new(10);
             pattern.Append('[');
             if (options.Parentheses) pattern.Append(@"\(\)");
             if (options.CurlyBrackets) pattern.Append(@"\{\}");
