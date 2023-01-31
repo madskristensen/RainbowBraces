@@ -30,6 +30,7 @@ namespace RainbowBraces
         private readonly List<SnapshotSpan> _spanList = new();
         private bool _isEnabled;
         private bool _scanWholeFile;
+        private int? _startPositionChange;
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
 
@@ -122,6 +123,12 @@ namespace RainbowBraces
             if (_isEnabled && e.Changes.Count > 0)
             {
                 int startPosition = e.Changes.Min(change => change.OldPosition);
+
+                // Save the topmost change to field. Debouncer can call ParseAsync with earlier parameter that can be wrong now.
+                _startPositionChange = _startPositionChange == null 
+                    ? startPosition 
+                    : Math.Min(_startPositionChange.Value, startPosition);
+
                 _debouncer.Debouce(() => { _ = ParseAsync(startPosition); });
             }
         }
@@ -138,6 +145,13 @@ namespace RainbowBraces
 
         public async Task ParseAsync(int topPosition = 0)
         {
+            // If we are parsing after change pick the topmost change that occured.
+            if (topPosition != 0)
+            {
+                topPosition = _startPositionChange ?? topPosition;
+                _startPositionChange = null;
+            }
+
             General options = await General.GetLiveInstanceAsync();
 
             // Must be performed on the UI thread.
