@@ -33,6 +33,7 @@ namespace RainbowBraces
         private Dictionary<int, IClassificationTag> _tagsByStart;
         private Dictionary<int, IClassificationTag> _tagsByEnd;
         private readonly HashSet<ITextView> _views = new();
+        private bool _tagsAvailable;
 
         static VerticalAdornmentsColorizer()
         {
@@ -79,6 +80,14 @@ namespace RainbowBraces
 
         private void ProcessTags(List<ITagSpan<IClassificationTag>> tags)
         {
+            if (tags.Count == 0)
+            {
+                _tagsAvailable = false;
+                _tagsByStart = null;
+                _tagsByEnd = null;
+                return;
+            }
+
             Dictionary<int, IClassificationTag> tagsByStartPosition = new();
             Dictionary<int, IClassificationTag> tagsByEndPosition = new();
             foreach (ITagSpan<IClassificationTag> tagSpan in tags)
@@ -89,6 +98,7 @@ namespace RainbowBraces
 
             _tagsByStart = tagsByStartPosition;
             _tagsByEnd = tagsByEndPosition;
+            _tagsAvailable = true;
         }
 
         private void DelayedProcessView(ITextView view, int delay)
@@ -106,6 +116,7 @@ namespace RainbowBraces
         {
             if (!Enabled) return;
             if (view.IsClosed) return;
+            if (!_tagsAvailable) return;
 
             try
             {
