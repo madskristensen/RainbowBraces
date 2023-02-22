@@ -48,6 +48,12 @@ namespace RainbowBraces
         [Description("Determines whether or not square brackets should be colorized.")]
         [DefaultValue(true)]
         public bool SquareBrackets { get; set; } = true;
+        
+        [Category("Braces and brackets")]
+        [DisplayName("Colorize angle brackets < >")]
+        [Description("Determines whether or not angle brackets should be colorized.")]
+        [DefaultValue(true)]
+        public bool AngleBrackets { get; set; } = true;
 
         [Category("Braces and brackets")]
         [DisplayName("(Experimental) Colorize vertical lines between { }")]
