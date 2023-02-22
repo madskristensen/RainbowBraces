@@ -13,14 +13,6 @@ using Match = System.Text.RegularExpressions.Match;
 
 namespace RainbowBraces
 {
-    public enum TagAllowance
-    {
-        Disallowed,
-        Punctuation,
-        Operator,
-        Debug
-    }
-
     public class RainbowTagger : ITagger<IClassificationTag>
     {
         private const int _maxLineLength = 100000;
@@ -189,7 +181,7 @@ namespace RainbowBraces
             // Filter tags and get their spans
             _spanList.Clear();
             _spanList.AddRange(_tagList
-                .Select(tag => (Tag: tag, Allowance: GetAllowedType(tag)))
+                .Select(tag => (Tag: tag, Allowance: GetAllowance(tag)))
                 .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
             IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
@@ -198,7 +190,7 @@ namespace RainbowBraces
             if (options.Parentheses) builders.AddBuilder('(', ')');
             if (options.CurlyBrackets) builders.AddBuilder('{', '}');
             if (options.SquareBrackets) builders.AddBuilder('[', ']');
-            if (options.AngleBrackets) builders.AddBuilder('<', '>', new [] { TagAllowance.Punctuation }); // Allow only punctuation
+            if (options.AngleBrackets) builders.AddBuilder('<', '>', new[] { TagAllowance.Punctuation }); // Allow only punctuation
 
             // If not selected all braces use specialized regex for only selected ones
             Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets && options.AngleBrackets
@@ -212,7 +204,7 @@ namespace RainbowBraces
             int fromStartAdd = 0;
             int fromEndRemove = 0;
             Dictionary<int, (Span Span, TagAllowance Allowance)> possibleMatchingSpans = new();
-            List<(Span Span, TagAllowance Allowance)> matchingTags = new();
+            List<(Span Span, TagAllowance Allowance)> matchingSpans = new();
 
             if (changedLine.LineNumber > 0)
             {
@@ -271,11 +263,11 @@ namespace RainbowBraces
                     int position = line.Start + match.Index;
 
                     // Enumeration of spans matching tags.
-                    matchingTags.Clear();
-                    matchingTags.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > position));
+                    matchingSpans.Clear();
+                    matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > position));
 
                     // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
-                    if (matchingTags.Any(s => s.Allowance == TagAllowance.Disallowed))
+                    if (matchingSpans.Any(s => s.Allowance == TagAllowance.Disallowed))
                     {
                         continue;
                     }
@@ -285,7 +277,7 @@ namespace RainbowBraces
                     // Try all builders if any can accept matched brace
                     foreach (BracePairBuilder braceBuilder in builders)
                     {
-                        if (braceBuilder.TryAdd(c, braceSpan, matchingTags)) break;
+                        if (braceBuilder.TryAdd(c, braceSpan, matchingSpans)) break;
                     }
                 }
 
@@ -300,8 +292,8 @@ namespace RainbowBraces
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
-
-        private static TagAllowance GetAllowedType(IMappingTagSpan<IClassificationTag> tagSpan)
+        
+        private static TagAllowance GetAllowance(IMappingTagSpan<IClassificationTag> tagSpan)
         {
             IClassificationType tagType = tagSpan.Tag.ClassificationType;
 
@@ -333,7 +325,7 @@ namespace RainbowBraces
                 // Allow tags for braces
                 if (tagType.IsOfType(PredefinedClassificationTypeNames.Punctuation)) return TagAllowance.Punctuation;
                 if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return TagAllowance.Operator;
-                if (tagType.IsOfType("XAML Delimiter")) return TagAllowance.Punctuation;
+                if (tagType.IsOfType("XAML Delimiter")) return TagAllowance.Delimiter;
                 if (tagType.IsOfType("SQL Operator")) return TagAllowance.Operator;
                 return TagAllowance.Disallowed;
             }
@@ -348,7 +340,7 @@ namespace RainbowBraces
             {
                 PredefinedClassificationTypeNames.Punctuation => TagAllowance.Punctuation,
                 PredefinedClassificationTypeNames.Operator => TagAllowance.Operator,
-                "XAML Delimiter" => TagAllowance.Punctuation,
+                "XAML Delimiter" => TagAllowance.Delimiter,
                 "SQL Operator" => TagAllowance.Operator,
                 _ => TagAllowance.Disallowed,
             };
