@@ -13,6 +13,14 @@ using Match = System.Text.RegularExpressions.Match;
 
 namespace RainbowBraces
 {
+    public enum TagAllowance
+    {
+        Disallowed,
+        Punctuation,
+        Operator,
+        Debug
+    }
+
     public class RainbowTagger : ITagger<IClassificationTag>
     {
         private const int _maxLineLength = 100000;
@@ -27,11 +35,11 @@ namespace RainbowBraces
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
         private readonly List<IMappingTagSpan<IClassificationTag>> _tagList = new();
-        private readonly List<SnapshotSpan> _spanList = new();
+        private readonly List<(SnapshotSpan, TagAllowance)> _spanList = new();
         private bool _isEnabled;
         private bool _scanWholeFile;
         private int? _startPositionChange;
-        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]]", RegexOptions.Compiled);
+        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]\<\>]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
 
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMap)
@@ -125,8 +133,8 @@ namespace RainbowBraces
                 int startPosition = e.Changes.Min(change => change.OldPosition);
 
                 // Save the topmost change to field. Debouncer can call ParseAsync with earlier parameter that can be wrong now.
-                _startPositionChange = _startPositionChange == null 
-                    ? startPosition 
+                _startPositionChange = _startPositionChange == null
+                    ? startPosition
                     : Math.Min(_startPositionChange.Value, startPosition);
 
                 _debouncer.Debouce(() => { _ = ParseAsync(startPosition); });
@@ -181,29 +189,30 @@ namespace RainbowBraces
             // Filter tags and get their spans
             _spanList.Clear();
             _spanList.AddRange(_tagList
-                .Where(IsDisallowedTag)
-                .SelectMany(d => d.Span.GetSpans(_buffer))
-                .Where(s => !s.IsEmpty));
-            IList<SnapshotSpan> allDisallow = _spanList;
+                .Select(tag => (Tag: tag, Allowance: GetAllowedType(tag)))
+                .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
+            IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
             // Create builders for each brace type
             BracePairBuilderCollection builders = new();
             if (options.Parentheses) builders.AddBuilder('(', ')');
             if (options.CurlyBrackets) builders.AddBuilder('{', '}');
             if (options.SquareBrackets) builders.AddBuilder('[', ']');
+            if (options.AngleBrackets) builders.AddBuilder('<', '>', new [] { TagAllowance.Punctuation }); // Allow only punctuation
 
             // If not selected all braces use specialized regex for only selected ones
-            Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets
+            Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets && options.AngleBrackets
                 ? _regex
                 : _specializedRegex ??= BuildRegex(options);
 
             // Prepare structure of all disallowed tag spans for faster linear processing
-            (Span Span, int Index)[] indexedDisallow = allDisallow.Select((s, i) => (s.Span, i)).ToArray();
-            (Span Span, int Index)[] disallowFromStart = indexedDisallow.OrderBy(s => s.Span.Start).ToArray();
-            (Span Span, int Index)[] disallowFromEnd = indexedDisallow.OrderBy(d => d.Span.End).ToArray();
+            (Span Span, TagAllowance Allowance, int Index)[] indexedDisallow = allDisallow.Select((tuple, i) => (tuple.Span.Span, tuple.Allowance, i)).ToArray();
+            (Span Span, TagAllowance Allowance, int Index)[] disallowFromStart = indexedDisallow.OrderBy(s => s.Span.Start).ToArray();
+            (Span Span, TagAllowance Allowance, int Index)[] disallowFromEnd = indexedDisallow.OrderBy(d => d.Span.End).ToArray();
             int fromStartAdd = 0;
             int fromEndRemove = 0;
-            Dictionary<int, Span> possibleDisallow = new();
+            Dictionary<int, (Span Span, TagAllowance Allowance)> possibleMatchingSpans = new();
+            List<(Span Span, TagAllowance Allowance)> matchingTags = new();
 
             if (changedLine.LineNumber > 0)
             {
@@ -225,9 +234,9 @@ namespace RainbowBraces
                 while (true)
                 {
                     if (fromEndRemove >= disallowFromEnd.Length) break;
-                    (Span Span, int Index) indexedSpan = disallowFromEnd[fromEndRemove];
+                    (Span Span, TagAllowance Allowance, int Index) indexedSpan = disallowFromEnd[fromEndRemove];
                     if (indexedSpan.Span.End >= lineStart) break;
-                    possibleDisallow.Remove(indexedSpan.Index);
+                    possibleMatchingSpans.Remove(indexedSpan.Index);
                     fromEndRemove++;
                 }
 
@@ -235,13 +244,13 @@ namespace RainbowBraces
                 while (true)
                 {
                     if (fromStartAdd >= disallowFromStart.Length) break;
-                    (Span Span, int Index) indexedSpan = disallowFromStart[fromStartAdd];
+                    (Span Span, TagAllowance Allowance, int Index) indexedSpan = disallowFromStart[fromStartAdd];
                     if (indexedSpan.Span.Start > lineEnd) break;
-                    possibleDisallow.Add(indexedSpan.Index, indexedSpan.Span);
+                    possibleMatchingSpans.Add(indexedSpan.Index, (indexedSpan.Span, indexedSpan.Allowance));
                     fromStartAdd++;
                 }
 
-                // Ignore any line above change becouse it is already cached
+                // Ignore any line above change because it is already cached
                 if ((changedLine.LineNumber > 0 && (lineEnd < changeStart)))
                 {
                     continue;
@@ -261,8 +270,12 @@ namespace RainbowBraces
                     char c = match.Value[0];
                     int position = line.Start + match.Index;
 
+                    // Enumeration of spans matching tags.
+                    matchingTags.Clear();
+                    matchingTags.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > position));
+
                     // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
-                    if (possibleDisallow.Values.Any(s => s.Start <= position && s.End > position))
+                    if (matchingTags.Any(s => s.Allowance == TagAllowance.Disallowed))
                     {
                         continue;
                     }
@@ -272,7 +285,7 @@ namespace RainbowBraces
                     // Try all builders if any can accept matched brace
                     foreach (BracePairBuilder braceBuilder in builders)
                     {
-                        if (braceBuilder.TryAdd(c, braceSpan)) break;
+                        if (braceBuilder.TryAdd(c, braceSpan, matchingTags)) break;
                     }
                 }
 
@@ -288,56 +301,63 @@ namespace RainbowBraces
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 
-        private static bool IsDisallowedTag(IMappingTagSpan<IClassificationTag> tagSpan)
+        private static TagAllowance GetAllowedType(IMappingTagSpan<IClassificationTag> tagSpan)
         {
             IClassificationType tagType = tagSpan.Tag.ClassificationType;
 
+            TagAllowance allowance;
             if (tagType is ILayeredClassificationType layeredType)
             {
-                if (IsAllowed(layeredType)) return false;
+                allowance = IsAllowed(layeredType);
+                if (allowance != TagAllowance.Disallowed) return allowance;
                 foreach (IClassificationType baseType in layeredType.BaseTypes)
                 {
-                    if (IsAllowed(baseType)) return false;
+                    allowance = IsAllowed(baseType);
+                    if (allowance != TagAllowance.Disallowed) return allowance;
                 }
             }
-            else if (IsAllowed(tagType)) return false;
+            else
+            {
+                allowance = IsAllowed(tagType);
+                if (allowance != TagAllowance.Disallowed) return allowance;
+            }
 
-            return true;
+            return TagAllowance.Disallowed;
         }
 
-        private static bool IsAllowed(IClassificationType tagType)
+        private static TagAllowance IsAllowed(IClassificationType tagType)
         {
             if (tagType is ILayeredClassificationType layeredType) return IsAllowed(layeredType);
             else
             {
                 // Allow tags for braces
-                if (tagType.IsOfType(PredefinedClassificationTypeNames.Punctuation)) return true;
-                if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return true;
-                if (tagType.IsOfType("XAML Delimiter")) return true;
-                if (tagType.IsOfType("SQL Operator")) return true;
-                return false;
+                if (tagType.IsOfType(PredefinedClassificationTypeNames.Punctuation)) return TagAllowance.Punctuation;
+                if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return TagAllowance.Operator;
+                if (tagType.IsOfType("XAML Delimiter")) return TagAllowance.Punctuation;
+                if (tagType.IsOfType("SQL Operator")) return TagAllowance.Operator;
+                return TagAllowance.Disallowed;
             }
         }
 
-        private static bool IsAllowed(ILayeredClassificationType layeredType)
+        private static TagAllowance IsAllowed(ILayeredClassificationType layeredType)
         {
             string classification = layeredType.Classification;
 
             // Allow tags for braces
-            bool isAllowed = classification switch
+            TagAllowance allowance = classification switch
             {
-                PredefinedClassificationTypeNames.Punctuation => true,
-                PredefinedClassificationTypeNames.Operator => true,
-                "XAML Delimiter" => true,
-                "SQL Operator" => true,
-                _ => false,
+                PredefinedClassificationTypeNames.Punctuation => TagAllowance.Punctuation,
+                PredefinedClassificationTypeNames.Operator => TagAllowance.Operator,
+                "XAML Delimiter" => TagAllowance.Punctuation,
+                "SQL Operator" => TagAllowance.Operator,
+                _ => TagAllowance.Disallowed,
             };
-            if (isAllowed) return true;
+            if (allowance != TagAllowance.Disallowed) return allowance;
 
             // Ignore tags for breakpoints
-            if (classification.Contains("Breakpoint")) return true;
+            if (classification.Contains("Breakpoint")) return TagAllowance.Debug;
 
-            return false;
+            return TagAllowance.Disallowed;
         }
 
         private void HandleRatingPrompt()
@@ -387,7 +407,7 @@ namespace RainbowBraces
         /// <summary>
         /// Returns whether is enabled globally by settings and any brace is enabled or not.
         /// </summary>
-        private static bool IsEnabled(General settings) => settings.Enabled && (settings.Parentheses || settings.CurlyBrackets || settings.SquareBrackets);
+        private static bool IsEnabled(General settings) => settings.Enabled && (settings.Parentheses || settings.CurlyBrackets || settings.SquareBrackets || settings.AngleBrackets);
 
         /// <summary>
         /// Create specialized regex for only partial of braces.
@@ -399,6 +419,7 @@ namespace RainbowBraces
             if (options.Parentheses) pattern.Append(@"\(\)");
             if (options.CurlyBrackets) pattern.Append(@"\{\}");
             if (options.SquareBrackets) pattern.Append(@"\[\]");
+            if (options.AngleBrackets) pattern.Append(@"\<\>");
             pattern.Append(']');
             return new Regex(pattern.ToString(), RegexOptions.Compiled);
         }

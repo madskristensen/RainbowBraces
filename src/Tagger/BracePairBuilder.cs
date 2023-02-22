@@ -8,12 +8,14 @@ namespace RainbowBraces
     {
         private static readonly Span _empty = new(0, 0);
         private readonly BracePairBuilderCollection _collection;
+        private readonly TagAllowance[] _allowedTags;
 
-        public BracePairBuilder(char open, char close, BracePairBuilderCollection collection)
+        public BracePairBuilder(char open, char close, BracePairBuilderCollection collection, TagAllowance[] allowedTags)
         {
             Open = open;
             Close = close;
             _collection = collection;
+            _allowedTags = allowedTags;
         }
 
         public char Open { get; }
@@ -23,7 +25,7 @@ namespace RainbowBraces
         public List<BracePair> Pairs { get; } = new();
 
         public Stack<BracePair> OpenPairs { get; } = new();
-        
+
         // Use global level for all brace types
         private int NextLevel => _collection.Level + 1;
 
@@ -41,7 +43,7 @@ namespace RainbowBraces
                 openPair.Close = _empty;
                 OpenPairs.Push(openPair);
             }
-            
+
             bool IsAboveChange(BracePair p)
             {
                 // Empty spans can be ignored especially the [0..0) that would be always above change
@@ -51,8 +53,14 @@ namespace RainbowBraces
             }
         }
 
-        public bool TryAdd(char match, Span braceSpan)
+        public bool TryAdd(char match, Span braceSpan, IEnumerable<(Span Span, TagAllowance Allowance)> matchingSpans)
         {
+            if (_allowedTags != null)
+            {
+                // All matching tags must match allowed tags
+                if (matchingSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
+            }
+
             if (match == Open)
             {
                 // Create new brace pair
