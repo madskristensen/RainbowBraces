@@ -71,7 +71,7 @@ namespace RainbowBraces
             foreach (ITextView view in views)
             {
                 // Register view if wasn't
-                RegisterView(view);
+                RegisterViewOnMainThread(view);
 
                 // And colorize vertical lines because tags could get changed
                 ProcessView(view);
@@ -195,10 +195,10 @@ namespace RainbowBraces
         public async Task RegisterViewAsync(ITextView view)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            RegisterView(view);
+            RegisterViewOnMainThread(view);
         }
 
-        private void RegisterView(ITextView view)
+        private void RegisterViewOnMainThread(ITextView view)
         {
             if (view.IsClosed) return;
 
