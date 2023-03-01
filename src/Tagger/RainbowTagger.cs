@@ -94,10 +94,10 @@ namespace RainbowBraces
 
         private void OnSettingsSaved(General settings)
         {
-            if (settings.Enabled)
+            if (IsEnabled(settings))
             {
                 _scanWholeFile = settings.VerticalAdornments;
-                ParseAsync().FireAndForget();
+                _debouncer.Debouce(() => { _ = ParseAsync(); });
             }
             else
             {
