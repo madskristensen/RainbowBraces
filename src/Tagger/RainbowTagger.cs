@@ -3,12 +3,12 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Language.StandardClassification;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
+using RainbowBraces.Tagger;
 using Match = System.Text.RegularExpressions.Match;
 
 namespace RainbowBraces
@@ -23,6 +23,7 @@ namespace RainbowBraces
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
         private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
+        private readonly AllowanceResolver _allowanceResolver;
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
@@ -40,6 +41,7 @@ namespace RainbowBraces
             _registry = registry;
             _aggregator = aggregator;
             _verticalAdornmentsColorizer = new(formatMap);
+            _allowanceResolver = GetAllowanceResolver(buffer);
             _isEnabled = IsEnabled(General.Instance);
             _scanWholeFile = General.Instance.VerticalAdornments;
             _debouncer = new(General.Instance.Timeout);
@@ -181,7 +183,7 @@ namespace RainbowBraces
             // Filter tags and get their spans
             _spanList.Clear();
             _spanList.AddRange(_tagList
-                .Select(tag => (Tag: tag, Allowance: GetAllowance(tag)))
+                .Select(tag => (Tag: tag, Allowance: _allowanceResolver.GetAllowance(tag)))
                 .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
             IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
@@ -292,65 +294,6 @@ namespace RainbowBraces
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
-        
-        private static TagAllowance GetAllowance(IMappingTagSpan<IClassificationTag> tagSpan)
-        {
-            IClassificationType tagType = tagSpan.Tag.ClassificationType;
-
-            TagAllowance allowance;
-            if (tagType is ILayeredClassificationType layeredType)
-            {
-                allowance = IsAllowed(layeredType);
-                if (allowance != TagAllowance.Disallowed) return allowance;
-                foreach (IClassificationType baseType in layeredType.BaseTypes)
-                {
-                    allowance = IsAllowed(baseType);
-                    if (allowance != TagAllowance.Disallowed) return allowance;
-                }
-            }
-            else
-            {
-                allowance = IsAllowed(tagType);
-                if (allowance != TagAllowance.Disallowed) return allowance;
-            }
-
-            return TagAllowance.Disallowed;
-        }
-
-        private static TagAllowance IsAllowed(IClassificationType tagType)
-        {
-            if (tagType is ILayeredClassificationType layeredType) return IsAllowed(layeredType);
-            else
-            {
-                // Allow tags for braces
-                if (tagType.IsOfType(PredefinedClassificationTypeNames.Punctuation)) return TagAllowance.Punctuation;
-                if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return TagAllowance.Operator;
-                if (tagType.IsOfType("XAML Delimiter")) return TagAllowance.Delimiter;
-                if (tagType.IsOfType("SQL Operator")) return TagAllowance.Operator;
-                return TagAllowance.Disallowed;
-            }
-        }
-
-        private static TagAllowance IsAllowed(ILayeredClassificationType layeredType)
-        {
-            string classification = layeredType.Classification;
-
-            // Allow tags for braces
-            TagAllowance allowance = classification switch
-            {
-                PredefinedClassificationTypeNames.Punctuation => TagAllowance.Punctuation,
-                PredefinedClassificationTypeNames.Operator => TagAllowance.Operator,
-                "XAML Delimiter" => TagAllowance.Delimiter,
-                "SQL Operator" => TagAllowance.Operator,
-                _ => TagAllowance.Disallowed,
-            };
-            if (allowance != TagAllowance.Disallowed) return allowance;
-
-            // Ignore tags for breakpoints
-            if (classification.Contains("Breakpoint")) return TagAllowance.Debug;
-
-            return TagAllowance.Disallowed;
-        }
 
         private void HandleRatingPrompt()
         {
@@ -423,6 +366,18 @@ namespace RainbowBraces
         private void ColorizeVerticalAdornments()
         {
             _verticalAdornmentsColorizer.ColorizeVerticalAdornmentsAsync(_views.ToArray(), _tags).FireAndForget();
+        }
+
+        private static AllowanceResolver GetAllowanceResolver(ITextBuffer buffer)
+        {
+            string contentType = buffer.ContentType.TypeName.ToUpper();
+            return contentType switch
+            {
+                ContentTypes.Css => new CssAllowanceResolver(),
+                ContentTypes.Less => new CssAllowanceResolver(),
+                ContentTypes.Scss => new CssAllowanceResolver(),
+                _ => new DefaultAllowanceResolver()
+            };
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
