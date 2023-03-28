@@ -56,6 +56,7 @@
     <Compile Include="Options\General.cs" />
     <Compile Include="Tagger\CssAllowanceResolver.cs" />
     <Compile Include="Tagger\DefaultAllowanceResolver.cs" />
+    <Compile Include="Tagger\MsBuildAllowanceResolver.cs" />
     <Compile Include="Tagger\RainbowTagger.cs" />
     <Compile Include="Tagger\RainbowTaggerProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

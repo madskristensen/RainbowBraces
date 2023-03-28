@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -373,11 +374,28 @@ namespace RainbowBraces
             string contentType = buffer.ContentType.TypeName.ToUpper();
             return contentType switch
             {
+                ContentTypes.Xml when IsMsBuildFile(buffer) => new MsBuildAllowanceResolver(),
                 ContentTypes.Css => new CssAllowanceResolver(),
                 ContentTypes.Less => new CssAllowanceResolver(),
                 ContentTypes.Scss => new CssAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };
+
+            static bool IsMsBuildFile(ITextBuffer buffer)
+            {
+                if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument textDocument) 
+                    && textDocument is { FilePath: { } filePath }
+                    && Path.GetFileName(filePath) is { Length: > 0 } fileName)
+                {
+                    // eg. Directory.Build.props
+                    if (fileName.EndsWith(".props", StringComparison.OrdinalIgnoreCase)) return true;
+                    // eg. Directory.Build.targets
+                    if (fileName.EndsWith(".targets", StringComparison.OrdinalIgnoreCase)) return true;
+                    // eg. .csproj, .vbproj, .proj
+                    if (fileName.Contains('.') && fileName.EndsWith("proj", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                return false;
+            }
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
