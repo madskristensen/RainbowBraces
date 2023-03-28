@@ -3,6 +3,7 @@
     public enum TagAllowance
     {
         Disallowed,
+        Allowed,
         Punctuation,
         Operator,
         Delimiter,

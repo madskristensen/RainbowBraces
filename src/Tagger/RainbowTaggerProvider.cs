@@ -17,6 +17,7 @@ namespace RainbowBraces
     [ContentType(ContentTypes.Scss)]
     [ContentType(ContentTypes.Json)]
     [ContentType(ContentTypes.Xaml)]
+    [ContentType(ContentTypes.Xml)]
     [ContentType("TypeScript")]
     [ContentType("SQL")]
     [ContentType("SQL Server Tools")]
