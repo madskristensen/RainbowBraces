@@ -35,6 +35,8 @@ namespace RainbowBraces
         private int? _startPositionChange;
         private static readonly Regex _regex = new(@"[\{\}\(\)\[\]\<\>]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
+        private Task _parseTask;
+        private readonly object _parseLock = new();
 
         public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMap)
         {
@@ -55,7 +57,7 @@ namespace RainbowBraces
             {
                 ThreadHelper.JoinableTaskFactory.StartOnIdle(async () =>
                 {
-                    await ParseAsync();
+                    await ParseAsync(forceActual: false);
                     HandleRatingPrompt();
                 }, VsTaskRunContext.UIThreadIdlePriority).FireAndForget();
             }
@@ -146,7 +148,59 @@ namespace RainbowBraces
             return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span));
         }
 
-        public async Task ParseAsync(int topPosition = 0)
+        public async Task ParseAsync(int topPosition = 0, bool forceActual = true)
+        {
+            // Task we'll be waiting for.
+            Task parseTask;
+            // Whether we started the task or we are waiting for previous one.
+            bool parseTaskStarted = false;
+
+            lock (_parseLock)
+            {
+                // If the task is already running we can wait for it ..
+                if (_parseTask is { IsCompleted: false })
+                {
+                    parseTask = _parseTask;
+                }
+                // .. else we'll start new task now.
+                else
+                {
+                    // Start the task with Task.Run() to minimize time under the lock.
+                    parseTask = _parseTask = Task.Run(
+                        async () =>
+                        {
+                            await ParseInternalAsync(topPosition);
+                        });
+                    parseTaskStarted = true;
+                }
+            }
+
+            try
+            {
+                // Wait for ParseInternalAsync to finish.
+                await parseTask;
+
+                // If we weren't started the task but want the most up to date state, we'll run the process again.
+                if (!parseTaskStarted && forceActual)
+                {
+                    // Force actual is not needed anymore, we are guaranteed it will be up to date to time this method was first called.
+                    await ParseAsync(topPosition, false);
+                }
+            }
+            finally
+            {
+                // If we started the task we can release it.
+                if (parseTaskStarted)
+                {
+                    lock (_parseLock)
+                    {
+                        _parseTask = null;
+                    }
+                }
+            }
+        }
+
+        private async Task ParseInternalAsync(int topPosition)
         {
             // If we are parsing after change pick the topmost change that occured.
             if (topPosition != 0)
