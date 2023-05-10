@@ -4,11 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
+using RainbowBraces.Helper;
 using RainbowBraces.Tagger;
 using Match = System.Text.RegularExpressions.Match;
 
@@ -23,6 +26,7 @@ namespace RainbowBraces
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
         private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private readonly IClassificationFormatMapService _formatMapService;
         private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
         private readonly AllowanceResolver _allowanceResolver;
         private readonly Debouncer _debouncer;
@@ -38,12 +42,13 @@ namespace RainbowBraces
         private Task _parseTask;
         private readonly object _parseLock = new();
 
-        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMap)
+        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMapService)
         {
             _buffer = buffer;
             _registry = registry;
             _aggregator = aggregator;
-            _verticalAdornmentsColorizer = new(formatMap);
+            _formatMapService = formatMapService;
+            _verticalAdornmentsColorizer = new(formatMapService);
             _allowanceResolver = GetAllowanceResolver(buffer);
             _isEnabled = IsEnabled(General.Instance);
             _scanWholeFile = General.Instance.VerticalAdornments;
@@ -73,6 +78,7 @@ namespace RainbowBraces
             view.Closed += OnViewClosed;
             view.LayoutChanged += View_LayoutChanged;
             _views.Add(view);
+            CascadiaCodeHack(view);
         }
 
         private void RemoveView(ITextView view)
@@ -101,6 +107,10 @@ namespace RainbowBraces
             {
                 _scanWholeFile = settings.VerticalAdornments;
                 _debouncer.Debouce(() => { _ = ParseAsync(); });
+                foreach (ITextView view in _views)
+                {
+                    CascadiaCodeHack(view);
+                }
             }
             else
             {
@@ -437,7 +447,7 @@ namespace RainbowBraces
 
             static bool IsMsBuildFile(ITextBuffer buffer)
             {
-                if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument textDocument) 
+                if (buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument textDocument)
                     && textDocument is { FilePath: { } filePath }
                     && Path.GetFileName(filePath) is { Length: > 0 } fileName)
                 {
@@ -453,5 +463,21 @@ namespace RainbowBraces
         }
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
+
+        private void CascadiaCodeHack(ITextView view)
+        {
+            IClassificationFormatMap formatMap = _formatMapService.GetClassificationFormatMap(view);
+            int cycleLength = General.Instance.CycleLength;
+            for (int level = 0; level < cycleLength; level++)
+            {
+                IClassificationType classification = _registry.GetClassificationType(ClassificationTypes.GetName(level, cycleLength));
+                TextFormattingRunProperties textProperties =  formatMap.GetTextProperties(classification);
+                if (FontFamilyMapper.TryGetEquivalentToCascadiaCode(textProperties.Typeface, out Typeface eqivalent))
+                {
+                    // set font equivalent to current but with respect to colorization of individual tags
+                    formatMap.SetTextProperties(classification, textProperties.SetTypeface(eqivalent));
+                }
+            }
+        }
     }
 }
