@@ -19,6 +19,10 @@ Both light and dark themes are supported.
 
 ![Screenshot](art/theme-colors.png)
 
+Razor templates (.razor) are now supported.
+
+![Razor](art/razor.png)
+
 To toggle the brace colorization on and off, a menu item is available under the **Edit -> Advanced** menu or using the shortcut **Ctrl+Shift+9**.
 
 ![Menu](art/menu.png)

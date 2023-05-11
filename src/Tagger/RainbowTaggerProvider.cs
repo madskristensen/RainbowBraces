@@ -25,6 +25,7 @@ namespace RainbowBraces
     [ContentType("phalanger")]
     [ContentType("Code++")]
     [ContentType("XSharp")]
+    [ContentType("Razor")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider

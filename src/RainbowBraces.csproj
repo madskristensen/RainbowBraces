@@ -74,6 +74,7 @@
       <Generator>VsctGenerator</Generator>
       <LastGenOutput>VSCommandTable.cs</LastGenOutput>
     </VSCTCompile>
+    <Compile Include="Tagger\RazorAllowanceResolver.cs" />
     <Compile Include="Tagger\TagAllowance.cs" />
     <Compile Include="Tagger\VerticalAdornmentsColorizer.cs" />
     <Compile Include="VSCommandTable.cs">
