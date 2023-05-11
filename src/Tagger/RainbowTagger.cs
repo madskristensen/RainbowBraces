@@ -32,7 +32,8 @@ namespace RainbowBraces
         private readonly Debouncer _debouncer;
         private List<ITagSpan<IClassificationTag>> _tags = new();
         private readonly BracePairCache _pairsCache = new();
-        private readonly List<IMappingTagSpan<IClassificationTag>> _tagList = new();
+        private List<IMappingTagSpan<IClassificationTag>> _tagList = new();
+        private List<IMappingTagSpan<IClassificationTag>> _tempTagList = new();
         private readonly List<(SnapshotSpan, TagAllowance)> _spanList = new();
         private bool _isEnabled;
         private bool _scanWholeFile;
@@ -94,8 +95,25 @@ namespace RainbowBraces
 
         private void View_LayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
         {
-            if (_scanWholeFile) return;
-            if (_isEnabled && (e.VerticalTranslation || e.HorizontalTranslation))
+            if (!_isEnabled) return;
+
+            bool isViewportChange = e.VerticalTranslation || e.HorizontalTranslation;
+            bool canParse = (_scanWholeFile, _allowanceResolver.CanChangeTags, isViewportChange) switch
+            {
+                // We scan whole file and listen to tags change, we can ignore viewport change. (I'm not so sure if viewport change can introduce new tags we are aware of)
+                (true, true, true) => false,
+                // We scan whole file, listen to every change and event is not viewport change so it must be change in tags.
+                (true, true, false) => true,
+                // We scan whole file and ignore tags changes.
+                (true, false, _) => false,
+                // We listen to tags changes and so we listen to viewport changes.
+                (false, true, _) => true,
+                // Is viewport change and we don't scan whole file, we need to parse again.
+                (false, false, true) => true,
+                // Is tags change and we ignore it.
+                (false, false, false) => false,
+            };
+            if (canParse)
             {
                 _debouncer.Debouce(() => { _ = ParseAsync(); });
             }
@@ -212,7 +230,7 @@ namespace RainbowBraces
 
         private async Task ParseInternalAsync(int topPosition)
         {
-            // If we are parsing after change pick the topmost change that occured.
+            // If we are parsing after change pick the topmost change that occurred.
             if (topPosition != 0)
             {
                 topPosition = _startPositionChange ?? topPosition;
@@ -239,11 +257,25 @@ namespace RainbowBraces
 
             // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
             // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
-            _tagList.Clear();
-            _tagList.AddRange(_aggregator.GetTags(wholeDocSpan));
+            _tempTagList.Clear();
+            _tempTagList.AddRange(_aggregator.GetTags(wholeDocSpan));
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
+
+            // Check if tags are equal from last processing.
+            if (AreEqualTags(_tagList, _tempTagList))
+            {
+                // We can clear the temporary list to avoid memory leaks.
+                _tempTagList.Clear();
+                return;
+            }
+
+            // Swap tag lists.
+            (_tagList, _tempTagList) = (_tempTagList, _tagList);
+
+            // We can clear the temporary list to avoid memory leaks.
+            _tempTagList.Clear();
 
             // Filter tags and get their spans
             _spanList.Clear();
@@ -333,8 +365,14 @@ namespace RainbowBraces
                     matchingSpans.Clear();
                     matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > position));
 
-                    // If brace is part of another tag (not punctation, operator or delimiter) then ignore it. (eg. is in string literal)
+                    // If brace is part of another tag (not punctuation, operator or delimiter) then ignore it. (eg. is in string literal)
                     if (matchingSpans.Any(s => s.Allowance == TagAllowance.Disallowed))
+                    {
+                        continue;
+                    }
+
+                    // If default allowance is Disallowed and no matching tag intersect then ignore it. (can be unrelated text in HTML)
+                    if (!_allowanceResolver.DefaultAllowed && matchingSpans.Count == 0)
                     {
                         continue;
                     }
@@ -354,10 +392,55 @@ namespace RainbowBraces
                 }
             }
 
+            List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.Pairs), options.CycleLength);
+
+            // Check if tag collection is different from previous result. If so, we do not need to raise TagsChanged event.
+            if (AreEqualTags(tags, _tags)) return;
+
             builders.SaveToCache(_pairsCache);
-            _tags = GenerateTagSpans(builders.SelectMany(b => b.Pairs), options.CycleLength);
+            _tags = tags;
             TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
+        }
+
+        private bool AreEqualTags(IReadOnlyList<IMappingTagSpan<IClassificationTag>> originalTags, IReadOnlyList<IMappingTagSpan<IClassificationTag>> newTags)
+        {
+            if (originalTags.Count != newTags.Count) return false;
+            for (int i = 0; i < originalTags.Count; i++)
+            {
+                IMappingTagSpan<IClassificationTag> originalTag = originalTags[i];
+                IMappingTagSpan<IClassificationTag> newTag = newTags[i];
+                if (!originalTag.Tag.ClassificationType.Classification.Equals(newTag.Tag.ClassificationType.Classification)) return false;
+                if (!AreEqualSpans(originalTag.Span.GetSpans(_buffer), newTag.Span.GetSpans(_buffer))) return false;
+            }
+            return true;
+        }
+
+        private static bool AreEqualTags(IReadOnlyList<ITagSpan<IClassificationTag>> originalTags, IReadOnlyList<ITagSpan<IClassificationTag>> newTags)
+        {
+            if (originalTags.Count != newTags.Count) return false;
+            for (int i = 0; i < originalTags.Count; i++)
+            {
+                ITagSpan<IClassificationTag> originalTag = originalTags[i];
+                ITagSpan<IClassificationTag> newTag = newTags[i];
+                if (!originalTag.Tag.ClassificationType.Classification.Equals(newTag.Tag.ClassificationType.Classification)) return false;
+                if (originalTag.Span.Start.Position != newTag.Span.Start.Position) return false;
+                if (originalTag.Span.Length != newTag.Span.Length) return false;
+            }
+            return true;
+        }
+
+        private static bool AreEqualSpans(NormalizedSnapshotSpanCollection originalSpans, NormalizedSnapshotSpanCollection newSpans)
+        {
+            if (originalSpans.Count != newSpans.Count) return false;
+            for (int i = 0; i < originalSpans.Count; i++)
+            {
+                SnapshotSpan originalTag = originalSpans[i];
+                SnapshotSpan newTag = newSpans[i];
+                if (originalTag.Span.Start != newTag.Span.Start) return false;
+                if (originalTag.Span.Length != newTag.Span.Length) return false;
+            }
+            return true;
         }
 
         private void HandleRatingPrompt()
@@ -442,6 +525,7 @@ namespace RainbowBraces
                 ContentTypes.Css => new CssAllowanceResolver(),
                 ContentTypes.Less => new CssAllowanceResolver(),
                 ContentTypes.Scss => new CssAllowanceResolver(),
+                "RAZOR" => new RazorAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };
 
@@ -471,7 +555,7 @@ namespace RainbowBraces
             for (int level = 0; level < cycleLength; level++)
             {
                 IClassificationType classification = _registry.GetClassificationType(ClassificationTypes.GetName(level, cycleLength));
-                TextFormattingRunProperties textProperties =  formatMap.GetTextProperties(classification);
+                TextFormattingRunProperties textProperties = formatMap.GetTextProperties(classification);
                 if (FontFamilyMapper.TryGetEquivalentToCascadiaCode(textProperties.Typeface, out Typeface eqivalent))
                 {
                     // set font equivalent to current but with respect to colorization of individual tags

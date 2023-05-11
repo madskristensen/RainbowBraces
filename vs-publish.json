@@ -33,6 +33,10 @@
     {
       "pathOnDisk": "art/vertical-adornments-options.png",
       "targetPath": "art/vertical-adornments-options.png"
+    },
+    {
+      "pathOnDisk": "art/razor.png",
+      "targetPath": "art/razor.png"
     }
   ],
   "overview": "README.md",
