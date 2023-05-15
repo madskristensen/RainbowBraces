@@ -281,6 +281,7 @@ namespace RainbowBraces
             _spanList.Clear();
             _spanList.AddRange(_tagList
                 .Select(tag => (Tag: tag, Allowance: _allowanceResolver.GetAllowance(tag)))
+                .Where(d => d.Allowance != TagAllowance.Ignore)
                 .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
             IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
