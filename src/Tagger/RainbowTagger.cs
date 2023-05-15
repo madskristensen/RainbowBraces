@@ -527,6 +527,7 @@ namespace RainbowBraces
                 ContentTypes.Less => new CssAllowanceResolver(),
                 ContentTypes.Scss => new CssAllowanceResolver(),
                 "RAZOR" => new RazorAllowanceResolver(),
+                "TYPESCRIPT" => new RazorAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };
 
