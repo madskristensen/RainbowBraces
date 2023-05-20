@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.Text.Classification;
+﻿using Microsoft.VisualStudio.Language.StandardClassification;
+using Microsoft.VisualStudio.Text.Classification;
 
 namespace RainbowBraces.Tagger;
 
@@ -25,6 +26,9 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
     /// <inheritdoc />
     protected override TagAllowance IsAllowed(IClassificationType tagType)
     {
+        // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
+        if (tagType.IsOfType(PredefinedClassificationTypeNames.String)) return TagAllowance.Ignore; 
+        
         if (General.Instance.XmlTags && tagType.IsOfType("HTML Tag Delimiter")) return TagAllowance.XmlTag;
 
         return base.IsAllowed(tagType);
@@ -33,6 +37,11 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
     /// <inheritdoc />
     protected override TagAllowance IsAllowed(ILayeredClassificationType layeredType)
     {
+        string classification = layeredType.Classification;
+
+        // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
+        if (classification == PredefinedClassificationTypeNames.String) return TagAllowance.Ignore;
+
         if (General.Instance.XmlTags && layeredType.Classification is "HTML Tag Delimiter") return TagAllowance.XmlTag;
 
         return base.IsAllowed(layeredType);

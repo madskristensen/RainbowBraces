@@ -4,6 +4,7 @@
     {
         Disallowed,
         Allowed,
+        Ignore,
         Punctuation,
         Operator,
         Delimiter,
