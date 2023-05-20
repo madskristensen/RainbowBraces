@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace RainbowBraces
 {
-    public class BracePairBuilderCollection : IEnumerable<BracePairBuilder>
+    public class BracePairBuilderCollection : IEnumerable<PairBuilder>
     {
-        private readonly List<BracePairBuilder> _builders = new();
+        private readonly List<PairBuilder> _builders = new();
         
         public int Level => _builders.Sum(builder => builder.OpenPairs.Count);
 
@@ -16,11 +16,17 @@ namespace RainbowBraces
             _builders.Add(builder);
         }
 
+        public void AddXmlTagBuilder(bool allowHtmlVoidTag)
+        {
+            XmlTagPairBuilder builder = new(this, allowHtmlVoidTag);
+            _builders.Add(builder);
+        }
+
         public void LoadFromCache(BracePairCache cache, int changeStart)
         {
-            foreach (BracePairBuilder builder in _builders)
+            foreach (PairBuilder builder in _builders)
             {
-                if (cache.TryGet(builder.Open, builder.Close, out List<BracePair> pairs))
+                if (cache.TryGet(builder, out List<BracePair> pairs))
                 {
                     builder.LoadFromCache(pairs, changeStart);
                 }
@@ -29,14 +35,14 @@ namespace RainbowBraces
 
         public void SaveToCache(BracePairCache cache)
         {
-            foreach (BracePairBuilder builder in _builders)
+            foreach (PairBuilder builder in _builders)
             {
-                cache.Set(builder.Open, builder.Close, builder.Pairs);
+                cache.Set(builder, builder.Pairs);
             }
         }
 
         /// <inheritdoc />
-        public IEnumerator<BracePairBuilder> GetEnumerator() => _builders.GetEnumerator();
+        public IEnumerator<PairBuilder> GetEnumerator() => _builders.GetEnumerator();
 
         /// <inheritdoc />
         IEnumerator IEnumerable.GetEnumerator()

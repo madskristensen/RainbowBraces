@@ -61,6 +61,12 @@ namespace RainbowBraces
         [DefaultValue(false)]
         public bool VerticalAdornments { get; set; } = false;
 
+        [Category("Braces and brackets")]
+        [DisplayName("Colorize XML/XHTML tags <item> ... </item>")]
+        [Description("Determines whether or not XML or XHTML tags should be colored to clarify nestiness.")]
+        [DefaultValue(true)]
+        public bool XmlTags { get; set; } = true;
+
         // Used for the rating prompt
         [Browsable(false)]
         public int RatingRequests { get; set; }

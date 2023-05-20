@@ -38,7 +38,7 @@ namespace RainbowBraces
         private bool _isEnabled;
         private bool _scanWholeFile;
         private int? _startPositionChange;
-        private static readonly Regex _regex = new(@"[\{\}\(\)\[\]\<\>]", RegexOptions.Compiled);
+        private static readonly Regex _regex = new(@"\/\>|\<\/|[\{\}\(\)\[\]\<\>]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
         private Task _parseTask;
         private readonly object _parseLock = new();
@@ -290,9 +290,10 @@ namespace RainbowBraces
             if (options.CurlyBrackets) builders.AddBuilder('{', '}');
             if (options.SquareBrackets) builders.AddBuilder('[', ']');
             if (options.AngleBrackets) builders.AddBuilder('<', '>', new[] { TagAllowance.Punctuation }); // Allow only punctuation
+            if (options.XmlTags && _allowanceResolver.AllowXmlTags) builders.AddXmlTagBuilder(_allowanceResolver.AllowHtmlVoidElement);
 
             // If not selected all braces use specialized regex for only selected ones
-            Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets && options.AngleBrackets
+            Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets && options.AngleBrackets && options.XmlTags
                 ? _regex
                 : _specializedRegex ??= BuildRegex(options);
 
@@ -348,8 +349,8 @@ namespace RainbowBraces
                 }
 
                 // Scan line if it contains any braces
-                string text = line.GetText();
-                MatchCollection matches = regex.Matches(text);
+                string lineText = line.GetText();
+                MatchCollection matches = regex.Matches(lineText);
 
                 if (matches.Count == 0)
                 {
@@ -358,12 +359,12 @@ namespace RainbowBraces
 
                 foreach (Match match in matches)
                 {
-                    char c = match.Value[0];
                     int position = line.Start + match.Index;
+                    int positionEnd = position + match.Length - 1;
 
                     // Enumeration of spans matching tags.
                     matchingSpans.Clear();
-                    matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > position));
+                    matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > positionEnd));
 
                     // If brace is part of another tag (not punctuation, operator or delimiter) then ignore it. (eg. is in string literal)
                     if (matchingSpans.Any(s => s.Allowance == TagAllowance.Disallowed))
@@ -377,12 +378,12 @@ namespace RainbowBraces
                         continue;
                     }
 
-                    Span braceSpan = new(position, 1);
+                    Span braceSpan = new(position, match.Length);
 
                     // Try all builders if any can accept matched brace
-                    foreach (BracePairBuilder braceBuilder in builders)
+                    foreach (PairBuilder braceBuilder in builders)
                     {
-                        if (braceBuilder.TryAdd(c, braceSpan, matchingSpans)) break;
+                        if (braceBuilder.TryAdd(match.Value, braceSpan, matchingSpans, (lineText, line.Start.Position))) break;
                     }
                 }
 
@@ -392,7 +393,7 @@ namespace RainbowBraces
                 }
             }
 
-            List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.Pairs), options.CycleLength);
+            List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength);
 
             // Check if tag collection is different from previous result. If so, we do not need to raise TagsChanged event.
             if (AreEqualTags(tags, _tags)) return;
@@ -490,7 +491,13 @@ namespace RainbowBraces
         /// <summary>
         /// Returns whether is enabled globally by settings and any brace is enabled or not.
         /// </summary>
-        private static bool IsEnabled(General settings) => settings.Enabled && (settings.Parentheses || settings.CurlyBrackets || settings.SquareBrackets || settings.AngleBrackets);
+        private static bool IsEnabled(General settings) => settings.Enabled && 
+                                                           (settings.Parentheses 
+                                                            || settings.CurlyBrackets 
+                                                            || settings.SquareBrackets 
+                                                            || settings.AngleBrackets
+                                                            || settings.XmlTags
+                                                            );
 
         /// <summary>
         /// Create specialized regex for only partial of braces.
@@ -498,12 +505,20 @@ namespace RainbowBraces
         private static Regex BuildRegex(General options)
         {
             StringBuilder pattern = new(10);
+
+            // Must be before braces to match entire group
+            if (options.XmlTags)
+            {
+                pattern.Append(@"\/\>|\<\/|");
+            }
+
             pattern.Append('[');
             if (options.Parentheses) pattern.Append(@"\(\)");
             if (options.CurlyBrackets) pattern.Append(@"\{\}");
             if (options.SquareBrackets) pattern.Append(@"\[\]");
-            if (options.AngleBrackets) pattern.Append(@"\<\>");
+            if (options.AngleBrackets || options.XmlTags) pattern.Append(@"\<\>");
             pattern.Append(']');
+
             return new Regex(pattern.ToString(), RegexOptions.Compiled);
         }
 
@@ -522,6 +537,9 @@ namespace RainbowBraces
             return contentType switch
             {
                 ContentTypes.Xml when IsMsBuildFile(buffer) => new MsBuildAllowanceResolver(),
+                ContentTypes.Xml => new XmlAllowanceResolver("XML Delimiter"),
+                ContentTypes.Xaml => new XmlAllowanceResolver("XAML Delimiter"),
+                ContentTypes.WebForms => new XmlAllowanceResolver("HTML Tag Delimiter", true),
                 ContentTypes.Css => new CssAllowanceResolver(),
                 ContentTypes.Less => new CssAllowanceResolver(),
                 ContentTypes.Scss => new CssAllowanceResolver(),

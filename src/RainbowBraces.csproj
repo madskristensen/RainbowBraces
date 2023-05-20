@@ -58,6 +58,7 @@
     <Compile Include="Tagger\CssAllowanceResolver.cs" />
     <Compile Include="Tagger\DefaultAllowanceResolver.cs" />
     <Compile Include="Tagger\MsBuildAllowanceResolver.cs" />
+    <Compile Include="Tagger\PairBuilder.cs" />
     <Compile Include="Tagger\RainbowTagger.cs" />
     <Compile Include="Tagger\RainbowTaggerProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -77,6 +78,8 @@
     <Compile Include="Tagger\RazorAllowanceResolver.cs" />
     <Compile Include="Tagger\TagAllowance.cs" />
     <Compile Include="Tagger\VerticalAdornmentsColorizer.cs" />
+    <Compile Include="Tagger\XmlAllowanceResolver.cs" />
+    <Compile Include="Tagger\XmlTagPairBuilder.cs" />
     <Compile Include="VSCommandTable.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

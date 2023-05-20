@@ -4,6 +4,9 @@ namespace RainbowBraces.Tagger
 {
     public class MsBuildAllowanceResolver : DefaultAllowanceResolver
     {
+        /// <inheritdoc />
+        public override bool AllowXmlTags => true;
+
         protected override TagAllowance IsAllowed(IClassificationType tagType)
         {
             // Allow for conditions in attributes or other transformations
@@ -11,6 +14,10 @@ namespace RainbowBraces.Tagger
 
             // Allow for property transformations as values
             if (tagType.IsOfType("XML Text")) return TagAllowance.Allowed;
+
+            // Allow <,</,>,/> XML delimiters
+            if (General.Instance.XmlTags && tagType.IsOfType("XML Delimiter")) return TagAllowance.XmlTag;
+
             return TagAllowance.Disallowed;
         }
 
@@ -23,6 +30,10 @@ namespace RainbowBraces.Tagger
 
             // Allow for property transformations as values
             if (classification == "XML Text") return TagAllowance.Allowed;
+
+            // Allow <,</,>,/> XML delimiters
+            if (General.Instance.XmlTags && classification == "XML Delimiter") return TagAllowance.XmlTag;
+
             return TagAllowance.Disallowed;
         }
     }

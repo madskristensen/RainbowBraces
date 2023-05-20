@@ -44,6 +44,20 @@ namespace RainbowBraces.Tagger
         /// </summary>
         public virtual bool CanChangeTags => false;
 
+        /// <summary>
+        /// If this property is <see langword="true"/> resolver can return <see cref="TagAllowance.XmlTag"/>.
+        /// This property is for performance optimization.
+        /// </summary>
+        public virtual bool AllowXmlTags => false;
+
+        /// <summary>
+        /// If this property is <see langword="true"/> resolver will treat HTML void elements as self-closed 
+        /// and <see cref="AllowXmlTags"/> is also expected to return <see langword="true"/>.
+        /// Otherwise HTML void element are treated as malformed XML document.
+        /// https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+        /// </summary>
+        public virtual bool AllowHtmlVoidElement => false;
+
         private TagAllowance GetAllowance(IClassificationType tagType)
         {
             if (tagType is ILayeredClassificationType layeredType) return IsAllowed(layeredType);

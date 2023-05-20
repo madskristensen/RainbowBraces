@@ -5,6 +5,7 @@ namespace RainbowBraces.Tagger
 {
     public class DefaultAllowanceResolver : AllowanceResolver
     {
+        /// <inheritdoc />
         protected override TagAllowance IsAllowed(IClassificationType tagType)
         {
             // Allow tags for braces
@@ -15,6 +16,7 @@ namespace RainbowBraces.Tagger
             return TagAllowance.Disallowed;
         }
 
+        /// <inheritdoc />
         protected override TagAllowance IsAllowed(ILayeredClassificationType layeredType)
         {
             string classification = layeredType.Classification;
