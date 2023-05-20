@@ -134,6 +134,7 @@ namespace RainbowBraces
             {
                 _pairsCache.Clear();
                 _tags.Clear();
+                _tagList.Clear();
                 _specializedRegex = null;
                 _scanWholeFile = false;
                 int visibleStart = GetVisibleStart();
