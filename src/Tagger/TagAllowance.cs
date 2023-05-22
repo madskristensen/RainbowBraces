@@ -8,6 +8,7 @@
         Punctuation,
         Operator,
         Delimiter,
-        Debug
+        Debug,
+        XmlTag
     }
 }

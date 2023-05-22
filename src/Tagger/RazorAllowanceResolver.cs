@@ -18,10 +18,18 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
     public override bool CanChangeTags => true;
 
     /// <inheritdoc />
+    public override bool AllowXmlTags => true;
+
+    /// <inheritdoc />
+    public override bool AllowHtmlVoidElement => true;
+
+    /// <inheritdoc />
     protected override TagAllowance IsAllowed(IClassificationType tagType)
     {
         // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
         if (tagType.IsOfType(PredefinedClassificationTypeNames.String)) return TagAllowance.Ignore; 
+        
+        if (General.Instance.XmlTags && tagType.IsOfType("HTML Tag Delimiter")) return TagAllowance.XmlTag;
 
         return base.IsAllowed(tagType);
     }
@@ -33,6 +41,8 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
 
         // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
         if (classification == PredefinedClassificationTypeNames.String) return TagAllowance.Ignore;
+
+        if (General.Instance.XmlTags && layeredType.Classification is "HTML Tag Delimiter") return TagAllowance.XmlTag;
 
         return base.IsAllowed(layeredType);
     }

@@ -8,4 +8,6 @@ namespace RainbowBraces
         public Span Close { get; set; }
         public int Level { get; set; }
     }
+
+    public class DummyBracePair : BracePair { }
 }

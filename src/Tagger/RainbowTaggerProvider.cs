@@ -18,6 +18,7 @@ namespace RainbowBraces
     [ContentType(ContentTypes.Json)]
     [ContentType(ContentTypes.Xaml)]
     [ContentType(ContentTypes.Xml)]
+    [ContentType(ContentTypes.WebForms)]
     [ContentType("TypeScript")]
     [ContentType("SQL")]
     [ContentType("SQL Server Tools")]
@@ -44,7 +45,7 @@ namespace RainbowBraces
         public ITagger<T> CreateTagger<T>(ITextView textView, ITextBuffer buffer) where T : ITag
         {
             // Calling CreateTagAggregator creates a recursive situation, so _isProcessing ensures it only runs once per textview.
-            if (textView.TextBuffer != buffer || _isProcessing)
+            if (!IsSupportedBuffer(textView, buffer) || _isProcessing)
             {
                 return null;
             }
@@ -65,6 +66,15 @@ namespace RainbowBraces
             {
                 _isProcessing = false;
             }
+        }
+
+        private static bool IsSupportedBuffer(ITextView textView, ITextBuffer buffer)
+        {
+            if (textView.TextBuffer == buffer) return true;
+
+            // HTML textview don't use HTML buffer but only HTMLProjection.
+            if (buffer.ContentType.IsOfType("HTML") && textView.TextBuffer.ContentType.IsOfType("HTMLProjection")) return true;
+            return false;
         }
     }
 }
