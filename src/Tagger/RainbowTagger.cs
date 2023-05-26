@@ -367,6 +367,12 @@ namespace RainbowBraces
                     matchingSpans.Clear();
                     matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > positionEnd));
 
+                    // If match is more than 1 character, include possible smaller spans inside.
+                    if (match.Length > 1)
+                    {
+                        matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start >= position && s.Span.End <= positionEnd));
+                    }
+
                     // If brace is part of another tag (not punctuation, operator or delimiter) then ignore it. (eg. is in string literal)
                     if (matchingSpans.Any(s => s.Allowance == TagAllowance.Disallowed))
                     {
