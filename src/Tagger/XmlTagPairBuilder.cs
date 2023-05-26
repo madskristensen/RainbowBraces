@@ -31,48 +31,34 @@ namespace RainbowBraces
                 // XML tagger is using tags that can span up to 2 brackets (1 close and 1 open) and whitespaces around them.
                 int spanStart = matchingSpan.Span.Start;
                 int spanEnd = matchingSpan.Span.End;
-
-                // Trim whitespaces from start.
-                for (; spanStart < spanEnd; spanStart++)
+                
+                if (isOpenBracket)
                 {
-                    if (!char.IsWhiteSpace(GetChar(line, spanStart))) break;
-                }
-
-                // Trim whitespaces from end.
-                for (; spanEnd > spanStart; spanEnd--)
-                {
-                    if (!char.IsWhiteSpace(GetChar(line, spanEnd - 1))) break;
-                }
-
-                if (isOpenBracket && spanStart != braceSpan.Start)
-                {
-                    // If is open bracket then in matching span can be previous close bracket.
-                    if (IsLineText(line, spanStart, "/>")) spanStart += 2;
-                    else if (IsLineText(line, spanStart, ">")) spanStart++;
-                    
-                    // If so, again trim whitespaces from start.
-                    for (; spanStart < spanEnd; spanStart++)
-                    {
-                        if (!char.IsWhiteSpace(GetChar(line, spanStart))) break;
-                    }
-                }
-
-                if (isCloseBracket && spanEnd != braceSpan.End)
-                {
-                    // If is close bracket in matching span can be next open bracket.
-                    if (IsLineText(line, spanEnd - 2, "</")) spanEnd -= 2;
-                    else if (IsLineText(line, spanEnd - 1, "<")) spanEnd--;
-                    
-                    // If so, again trim whitespaces from end.
+                    // If we are looking after open bracket we expect it at the end of span and don't care about span start (can be close bracket of another tag).
+                    // Trim whitespaces from end.
                     for (; spanEnd > spanStart; spanEnd--)
                     {
                         if (!char.IsWhiteSpace(GetChar(line, spanEnd - 1))) break;
                     }
+
+                    // Check if the match is at the end.
+                    if (IsLineText(line, spanEnd - match.Length, match)) break;
                 }
 
-                // If trimmed matching span still not exactly match bracket span the tag is not allowed (eg. is comment or preprocessor).
-                if (spanEnd != braceSpan.End) return false;
-                if (spanStart != braceSpan.Start) return false;
+                if (isCloseBracket)
+                {
+                    // If we are looking after close bracket we expect it at the start of span and don't care about span end (can be open bracket of another tag).
+                    // Trim whitespaces from start.
+                    for (; spanStart < spanEnd; spanStart++)
+                    {
+                        if (!char.IsWhiteSpace(GetChar(line, spanStart))) break;
+                    }
+
+                    // Check if the match is at the start.
+                    if (IsLineText(line, spanStart, match)) break;
+                }
+
+                return false;
             }
 
             if (isOpenBracket)
