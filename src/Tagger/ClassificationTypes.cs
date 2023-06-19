@@ -9,6 +9,14 @@ namespace RainbowBraces
     {
         public static string GetName(int level, int cycleLength)
         {
+            // Clamp to range 1-9
+            cycleLength = cycleLength switch
+            {
+                < 1 => 1,
+                > 9 => 9,
+                _ => cycleLength
+            };
+            
             int mod = level % cycleLength;
 
             if (mod == 0)
