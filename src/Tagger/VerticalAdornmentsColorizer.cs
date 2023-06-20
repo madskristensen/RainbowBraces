@@ -194,6 +194,9 @@ namespace RainbowBraces
 
         public async Task RegisterViewAsync(ITextView view)
         {
+            // sticky scroll container don't have vertical adornments
+            if (view.Roles.Contains(CustomTextViewRoles.StickyScroll)) return;
+
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             RegisterViewOnMainThread(view);
         }
