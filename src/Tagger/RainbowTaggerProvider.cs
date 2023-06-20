@@ -28,6 +28,7 @@ namespace RainbowBraces
     [ContentType("XSharp")]
     [ContentType("Razor")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
+    [TextViewRole(CustomTextViewRoles.StickyScroll)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
     {
@@ -71,6 +72,9 @@ namespace RainbowBraces
         private static bool IsSupportedBuffer(ITextView textView, ITextBuffer buffer)
         {
             if (textView.TextBuffer == buffer) return true;
+
+            // sticky scroll container is allowed for colorization
+            if (textView.Roles.Contains(CustomTextViewRoles.StickyScroll)) return true;
 
             // HTML textview don't use HTML buffer but only HTMLProjection.
             if (buffer.ContentType.IsOfType("HTML") && textView.TextBuffer.ContentType.IsOfType("HTMLProjection")) return true;

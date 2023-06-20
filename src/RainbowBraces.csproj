@@ -46,6 +46,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Commands\ToggleCommand.cs" />
+    <Compile Include="Helper\CustomTextViewRoles.cs" />
     <Compile Include="Helper\FontFamilyMapper.cs" />
     <Compile Include="Tagger\AllowanceResolver.cs" />
     <Compile Include="Tagger\BracePair.cs" />
