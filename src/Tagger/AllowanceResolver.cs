@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.Text.Classification;
+﻿using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Tagging;
 
 namespace RainbowBraces.Tagger
@@ -11,21 +12,22 @@ namespace RainbowBraces.Tagger
         public TagAllowance GetAllowance(IMappingTagSpan<IClassificationTag> tagSpan)
         {
             IClassificationType tagType = tagSpan.Tag.ClassificationType;
+            IMappingSpan span = tagSpan.Span;
 
             TagAllowance allowance;
             if (tagType is ILayeredClassificationType layeredType)
             {
-                allowance = GetAllowance(layeredType);
+                allowance = GetAllowance(layeredType, span);
                 if (allowance != TagAllowance.Disallowed) return allowance;
                 foreach (IClassificationType baseType in layeredType.BaseTypes)
                 {
-                    allowance = GetAllowance(baseType);
+                    allowance = GetAllowance(baseType, span);
                     if (allowance != TagAllowance.Disallowed) return allowance;
                 }
             }
             else
             {
-                allowance = GetAllowance(tagType);
+                allowance = GetAllowance(tagType, span);
                 if (allowance != TagAllowance.Disallowed) return allowance;
             }
 
@@ -58,7 +60,7 @@ namespace RainbowBraces.Tagger
         /// </summary>
         public virtual bool AllowHtmlVoidElement => false;
 
-        private TagAllowance GetAllowance(IClassificationType tagType)
+        protected virtual TagAllowance GetAllowance(IClassificationType tagType, IMappingSpan span)
         {
             if (tagType is ILayeredClassificationType layeredType) return IsAllowed(layeredType);
             else return IsAllowed(tagType);

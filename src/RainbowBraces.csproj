@@ -56,6 +56,7 @@
     <Compile Include="Tagger\ClassificationTypes.cs" />
     <Compile Include="Helper\Debouncer.cs" />
     <Compile Include="Options\General.cs" />
+    <Compile Include="Tagger\CPlusPlusAllowanceResolver.cs" />
     <Compile Include="Tagger\CssAllowanceResolver.cs" />
     <Compile Include="Tagger\DefaultAllowanceResolver.cs" />
     <Compile Include="Tagger\JavascriptAllowanceResolver.cs" />
