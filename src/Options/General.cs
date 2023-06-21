@@ -66,6 +66,12 @@ namespace RainbowBraces
         [Description("Determines whether or not XML or XHTML tags should be colored to clarify nestiness.")]
         [DefaultValue(true)]
         public bool XmlTags { get; set; } = true;
+        
+        [Category("Braces and brackets")]
+        [DisplayName("Experimental - Colorize angle brackets is C++ in templates")]
+        [Description("Will try to colorize angle brackets in C++ templates. But possibly can colorize something wrong. Is still work in progress.")]
+        [DefaultValue(false)]
+        public bool ExperimentalCPlusPlusGenerics { get; set; } = false;
 
         // Used for the rating prompt
         [Browsable(false)]
