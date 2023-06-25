@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Text;
+using RainbowBraces.Tagger;
 
 namespace RainbowBraces
 {
@@ -19,7 +20,7 @@ namespace RainbowBraces
 
         public char Close { get; }
 
-        public override bool TryAdd(string match, Span braceSpan, IReadOnlyList<(Span Span, TagAllowance Allowance)> matchingSpans, (string Line, int Offset) line)
+        public override bool TryAdd(string match, Span braceSpan, MatchingContext context, (string Line, int Offset) line)
         {
             if (match.Length != 1) return false;
             char c = match[0];
@@ -27,7 +28,7 @@ namespace RainbowBraces
             if (_allowedTags != null)
             {
                 // All matching tags must match allowed tags
-                if (matchingSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
+                if (context.MatchingSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
             }
 
             if (c == Open)
