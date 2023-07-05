@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Text;
+using RainbowBraces.Tagger;
 
 namespace RainbowBraces
 {
@@ -17,12 +18,12 @@ namespace RainbowBraces
         }
 
         /// <inheritdoc />
-        public override bool TryAdd(string match, Span braceSpan, IReadOnlyList<(Span Span, TagAllowance Allowance)> matchingSpans, (string Line, int Offset) line)
+        public override bool TryAdd(string match, Span braceSpan, MatchingContext context, (string Line, int Offset) line)
         {
-            if (matchingSpans.Count == 0) return false;
+            if (context.MatchingSpans.Count == 0) return false;
             bool isOpenBracket = match is "<" or "</";
             bool isCloseBracket = match is ">" or "/>";
-            foreach ((Span Span, TagAllowance Allowance) matchingSpan in matchingSpans)
+            foreach (MatchingContext.OrderedAllowanceSpan matchingSpan in context.MatchingSpans)
             {
                 // Only XML tags are allowed to intersect
                 if (matchingSpan.Allowance != TagAllowance.XmlTag) return false;

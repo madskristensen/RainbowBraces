@@ -22,6 +22,13 @@ namespace RainbowBraces
             _builders.Add(builder);
         }
 
+        public void AddBuilder<TBuilder>(Func<BracePairBuilderCollection, TBuilder> ctor)
+            where TBuilder : PairBuilder
+        {
+            TBuilder builder = ctor(this);
+            _builders.Add(builder);
+        }
+
         public void LoadFromCache(BracePairCache cache, int changeStart)
         {
             foreach (PairBuilder builder in _builders)

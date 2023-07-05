@@ -278,6 +278,9 @@ namespace RainbowBraces
             // We can clear the temporary list to avoid memory leaks.
             _tempTagList.Clear();
 
+            // Prepare resolver pro processing.
+            _allowanceResolver.Prepare();
+
             // Filter tags and get their spans
             _spanList.Clear();
             _spanList.AddRange(_tagList
@@ -286,13 +289,8 @@ namespace RainbowBraces
                 .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
             IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
-            // Create builders for each brace type
-            BracePairBuilderCollection builders = new();
-            if (options.Parentheses) builders.AddBuilder('(', ')');
-            if (options.CurlyBrackets) builders.AddBuilder('{', '}');
-            if (options.SquareBrackets) builders.AddBuilder('[', ']');
-            if (options.AngleBrackets) builders.AddBuilder('<', '>', new[] { TagAllowance.Punctuation }); // Allow only punctuation
-            if (options.XmlTags && _allowanceResolver.AllowXmlTags) builders.AddXmlTagBuilder(_allowanceResolver.AllowHtmlVoidElement);
+            // Create builders for file.
+            BracePairBuilderCollection builders = _allowanceResolver.CreateBuilders(options);
 
             // If not selected all braces use specialized regex for only selected ones
             Regex regex = options.Parentheses && options.CurlyBrackets && options.SquareBrackets && options.AngleBrackets && options.XmlTags
@@ -300,13 +298,7 @@ namespace RainbowBraces
                 : _specializedRegex ??= BuildRegex(options);
 
             // Prepare structure of all disallowed tag spans for faster linear processing
-            (Span Span, TagAllowance Allowance, int Index)[] indexedDisallow = allDisallow.Select((tuple, i) => (tuple.Span.Span, tuple.Allowance, i)).ToArray();
-            (Span Span, TagAllowance Allowance, int Index)[] disallowFromStart = indexedDisallow.OrderBy(s => s.Span.Start).ToArray();
-            (Span Span, TagAllowance Allowance, int Index)[] disallowFromEnd = indexedDisallow.OrderBy(d => d.Span.End).ToArray();
-            int fromStartAdd = 0;
-            int fromEndRemove = 0;
-            Dictionary<int, (Span Span, TagAllowance Allowance)> possibleMatchingSpans = new();
-            List<(Span Span, TagAllowance Allowance)> matchingSpans = new();
+            MatchingContext context = new(allDisallow);
 
             if (changedLine.LineNumber > 0)
             {
@@ -324,25 +316,7 @@ namespace RainbowBraces
                 int lineStart = line.Start;
                 int lineEnd = line.End;
 
-                // Remove all disallowed tags with end before this line
-                while (true)
-                {
-                    if (fromEndRemove >= disallowFromEnd.Length) break;
-                    (Span Span, TagAllowance Allowance, int Index) indexedSpan = disallowFromEnd[fromEndRemove];
-                    if (indexedSpan.Span.End >= lineStart) break;
-                    possibleMatchingSpans.Remove(indexedSpan.Index);
-                    fromEndRemove++;
-                }
-
-                // Add all disallowed tags with start on this line
-                while (true)
-                {
-                    if (fromStartAdd >= disallowFromStart.Length) break;
-                    (Span Span, TagAllowance Allowance, int Index) indexedSpan = disallowFromStart[fromStartAdd];
-                    if (indexedSpan.Span.Start > lineEnd) break;
-                    possibleMatchingSpans.Add(indexedSpan.Index, (indexedSpan.Span, indexedSpan.Allowance));
-                    fromStartAdd++;
-                }
+                context.ProceedTo(lineStart, lineEnd);
 
                 // Ignore any line above change because it is already cached
                 if ((changedLine.LineNumber > 0 && (lineEnd < changeStart)))
@@ -364,15 +338,7 @@ namespace RainbowBraces
                     int position = line.Start + match.Index;
                     int positionEnd = position + match.Length - 1;
 
-                    // Enumeration of spans matching tags.
-                    matchingSpans.Clear();
-                    matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start <= position && s.Span.End > positionEnd));
-
-                    // If match is more than 1 character, include possible smaller spans inside.
-                    if (match.Length > 1)
-                    {
-                        matchingSpans.AddRange(possibleMatchingSpans.Values.Where(s => s.Span.Start >= position && s.Span.End <= positionEnd));
-                    }
+                    IReadOnlyList<MatchingContext.OrderedAllowanceSpan> matchingSpans = context.GetMatch(match, position, positionEnd);
 
                     // If brace is part of another tag (not punctuation, operator or delimiter) then ignore it. (eg. is in string literal)
                     if (matchingSpans.Any(s => s.Allowance == TagAllowance.Disallowed))
@@ -391,7 +357,7 @@ namespace RainbowBraces
                     // Try all builders if any can accept matched brace
                     foreach (PairBuilder braceBuilder in builders)
                     {
-                        if (braceBuilder.TryAdd(match.Value, braceSpan, matchingSpans, (lineText, line.Start.Position))) break;
+                        if (braceBuilder.TryAdd(match.Value, braceSpan, context, (lineText, line.Start.Position))) break;
                     }
                 }
 
@@ -400,6 +366,9 @@ namespace RainbowBraces
                     break;
                 }
             }
+
+            // Processing has ended.
+            _allowanceResolver.Cleanup();
 
             List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength);
 
@@ -499,10 +468,10 @@ namespace RainbowBraces
         /// <summary>
         /// Returns whether is enabled globally by settings and any brace is enabled or not.
         /// </summary>
-        private static bool IsEnabled(General settings) => settings.Enabled && 
-                                                           (settings.Parentheses 
-                                                            || settings.CurlyBrackets 
-                                                            || settings.SquareBrackets 
+        private static bool IsEnabled(General settings) => settings.Enabled &&
+                                                           (settings.Parentheses
+                                                            || settings.CurlyBrackets
+                                                            || settings.SquareBrackets
                                                             || settings.AngleBrackets
                                                             || settings.XmlTags
                                                             );

@@ -35,6 +35,38 @@ namespace RainbowBraces.Tagger
         }
 
         /// <summary>
+        /// Creates builder collection specific for current resolver with respect to <paramref name="options"/>.
+        /// </summary>
+        public virtual BracePairBuilderCollection CreateBuilders(General options)
+        {
+            // Create builders for each brace type
+            BracePairBuilderCollection builders = new();
+            if (options.Parentheses) builders.AddBuilder('(', ')');
+            if (options.CurlyBrackets) builders.AddBuilder('{', '}');
+            if (options.SquareBrackets) builders.AddBuilder('[', ']');
+            if (options.AngleBrackets) builders.AddBuilder('<', '>', new[] { TagAllowance.Punctuation }); // Allow only punctuation
+            if (options.XmlTags && AllowXmlTags) builders.AddXmlTagBuilder(AllowHtmlVoidElement);
+
+            return builders;
+        }
+
+        /// <summary>
+        /// Method invoked before processing tags. Can be used to initialize resources,
+        /// </summary>
+        public virtual void Prepare()
+        {
+
+        }
+
+        /// <summary>
+        /// Method invoked after processed tags. Can be used to cleanup resources.
+        /// </summary>
+        public virtual void Cleanup()
+        {
+
+        }
+
+        /// <summary>
         /// If this property is <see langword="true"/> brace should be considered pair if is not in another tag.
         /// Otherwise brace will be treated as unrelated text.
         /// </summary>

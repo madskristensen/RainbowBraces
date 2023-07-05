@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Text;
+using RainbowBraces.Tagger;
 
 namespace RainbowBraces
 {
@@ -54,7 +55,7 @@ namespace RainbowBraces
             }
         }
 
-        public abstract bool TryAdd(string match, Span braceSpan, IReadOnlyList<(Span Span, TagAllowance Allowance)> matchingSpans, (string Line, int Offset) line);
+        public abstract bool TryAdd(string match, Span braceSpan, MatchingContext context, (string Line, int Offset) line);
 
         public virtual object GetCacheKey() => GetType();
 
