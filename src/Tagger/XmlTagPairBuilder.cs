@@ -159,7 +159,7 @@ namespace RainbowBraces
             {
                 if (!IsLineText(line, braceSpan.End, tag, true)) return false;
 
-                // must be exactly the tag
+                // must be exactly the void element
                 char nextChar = GetChar(line, braceSpan.End + tag.Length);
                 if (nextChar is '>' or '/' || char.IsWhiteSpace(nextChar)) return true;
                 return false;
