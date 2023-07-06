@@ -27,6 +27,7 @@ namespace RainbowBraces
     [ContentType("Code++")]
     [ContentType("XSharp")]
     [ContentType("Razor")]
+    [ContentType("LegacyRazorVisualBasic")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
     [TagType(typeof(IClassificationTag))]
