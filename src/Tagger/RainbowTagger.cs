@@ -523,6 +523,7 @@ namespace RainbowBraces
                 ContentTypes.CPlusPlus => new CPlusPlusAllowanceResolver(),
                 "RAZOR" => new RazorAllowanceResolver(),
                 "TYPESCRIPT" => new RazorAllowanceResolver(),
+                "LEGACYRAZORVISUALBASIC" => new RazorAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };
 
