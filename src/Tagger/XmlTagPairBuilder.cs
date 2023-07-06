@@ -32,7 +32,7 @@ namespace RainbowBraces
                 // XML tagger is using tags that can span up to 2 brackets (1 close and 1 open) and whitespaces around them.
                 int spanStart = matchingSpan.Span.Start;
                 int spanEnd = matchingSpan.Span.End;
-                
+
                 if (isOpenBracket)
                 {
                     // If we are looking after open bracket we expect it at the end of span and don't care about span start (can be close bracket of another tag).
@@ -157,7 +157,12 @@ namespace RainbowBraces
 
             bool IsTag(string tag)
             {
-                return IsLineText(line, braceSpan.End, tag, true);
+                if (!IsLineText(line, braceSpan.End, tag, true)) return false;
+
+                // must be exactly the void element
+                char nextChar = GetChar(line, braceSpan.End + tag.Length);
+                if (nextChar is '>' or '/' || char.IsWhiteSpace(nextChar)) return true;
+                return false;
             }
         }
 
