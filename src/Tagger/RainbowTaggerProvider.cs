@@ -78,8 +78,15 @@ namespace RainbowBraces
             if (textView.Roles.Contains(CustomTextViewRoles.StickyScroll)) return true;
 
             // HTML textview don't use HTML buffer but only HTMLProjection.
-            if (buffer.ContentType.IsOfType("HTML") && textView.TextBuffer.ContentType.IsOfType("HTMLProjection")) return true;
+            if (textView.TextBuffer.ContentType.IsOfType("HTMLProjection") && IsSupportedHtmlContentType(buffer.ContentType)) return true;
             return false;
+
+            static bool IsSupportedHtmlContentType(IContentType contentType)
+            {
+                if (contentType.IsOfType("HTML")) return true;
+                if (contentType.IsOfType("Basic")) return true;
+                return false;
+            }
         }
     }
 }

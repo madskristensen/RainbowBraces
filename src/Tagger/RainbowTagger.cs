@@ -169,12 +169,33 @@ namespace RainbowBraces
 
         IEnumerable<ITagSpan<IClassificationTag>> ITagger<IClassificationTag>.GetTags(NormalizedSnapshotSpanCollection spans)
         {
-            if (_tags.Count == 0 || spans.Count == 0 || spans[0].IsEmpty)
+            if (_tags.Count == 0 || spans.Count == 0)
             {
                 return null;
             }
 
-            return _tags.Where(p => spans[0].IntersectsWith(p.Span.Span));
+            foreach (SnapshotSpan span in spans)
+            {
+                if (!span.IsEmpty) continue;
+
+                // Perf optimization, process only not empty spans.
+                spans = new NormalizedSnapshotSpanCollection(spans.Where(s => !s.IsEmpty));
+                break;
+            }
+
+            switch (spans.Count)
+            {
+                case 0:
+                    return null;
+                case 1:
+                {
+                    // Performance optimization for most common case with only single not empty span.
+                    SnapshotSpan singleSpan = spans[0];
+                    return _tags.Where(p => singleSpan.IntersectsWith(p.Span.Span));
+                }
+                default:
+                    return _tags.Where(p => spans.IntersectsWith(p.Span));
+            }
         }
 
         public async Task ParseAsync(int topPosition = 0, bool forceActual = true)
