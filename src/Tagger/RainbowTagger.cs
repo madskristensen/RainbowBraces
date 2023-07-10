@@ -194,7 +194,8 @@ namespace RainbowBraces
                     return _tags.Where(p => singleSpan.IntersectsWith(p.Span.Span));
                 }
                 default:
-                    return _tags.Where(p => spans.IntersectsWith(p.Span));
+                    // We must use simple Span, using SnapshotSpan intersections can throws 'Different snapshots Exception'.
+                    return _tags.Where(p => spans.Any(s => s.IntersectsWith(p.Span.Span)));
             }
         }
 
