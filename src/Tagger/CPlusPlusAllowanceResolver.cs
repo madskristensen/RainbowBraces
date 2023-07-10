@@ -44,6 +44,7 @@ namespace RainbowBraces.Tagger
             _allowedNextOpenClassifications = new()
             {
                 "cppType", // <enable_if_t<...>>
+                "cppGlobalVariable", // enable_if_t<is_invocable_v<...>>
                 "keyword", // <bool>
                 "identifier", // <invalid_token_but_preserve_brace_pairs>
                 "cppNamespace" // <std::string>

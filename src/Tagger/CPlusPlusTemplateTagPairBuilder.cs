@@ -22,6 +22,9 @@ public class CPlusPlusTemplateTagPairBuilder : PairBuilder
         {
             if (!BaseCheck(out MatchingContext.OrderedAllowanceSpan span)) return false;
 
+            // There cannot be 2 opening braces next to another
+            if (context.MatchingSpans[0].Span.Length != 1) return false;
+
             if (!TryGetPrevious(span, out string previous)) return false;
             if (!CPlusPlusAllowanceResolver.IsValidPreviousOpen(previous)) return false;
 
