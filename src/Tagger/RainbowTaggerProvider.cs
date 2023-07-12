@@ -29,6 +29,7 @@ namespace RainbowBraces
     [ContentType("Razor")]
     [ContentType("LegacyRazorVisualBasic")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
+    [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
