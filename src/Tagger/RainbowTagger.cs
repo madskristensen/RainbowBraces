@@ -30,7 +30,7 @@ namespace RainbowBraces
         private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
         private readonly AllowanceResolver _allowanceResolver;
         private readonly Debouncer _debouncer;
-        private List<ITagSpan<IClassificationTag>> _tags = new();
+        private IReadOnlyList<ITagSpan<IClassificationTag>> _tags = Array.Empty<ITagSpan<IClassificationTag>>();
         private readonly BracePairCache _pairsCache = new();
         private List<IMappingTagSpan<IClassificationTag>> _tagList = new();
         private List<IMappingTagSpan<IClassificationTag>> _tempTagList = new();
@@ -133,7 +133,8 @@ namespace RainbowBraces
             else
             {
                 _pairsCache.Clear();
-                _tags.Clear();
+
+                _tags = Array.Empty<ITagSpan<IClassificationTag>>();
                 _tagList.Clear();
                 _specializedRegex = null;
                 _scanWholeFile = false;
@@ -174,8 +175,10 @@ namespace RainbowBraces
                 return null;
             }
 
+            ITextSnapshot snapshot = null;
             foreach (SnapshotSpan span in spans)
             {
+                snapshot ??= span.Snapshot;
                 if (!span.IsEmpty) continue;
 
                 // Perf optimization, process only not empty spans.
@@ -183,20 +186,65 @@ namespace RainbowBraces
                 break;
             }
 
+            UpdateToNewerSnapshot(snapshot, false);
+
             switch (spans.Count)
             {
                 case 0:
                     return null;
                 case 1:
-                {
-                    // Performance optimization for most common case with only single not empty span.
-                    SnapshotSpan singleSpan = spans[0];
-                    return _tags.Where(p => singleSpan.IntersectsWith(p.Span.Span));
-                }
+                    {
+                        // Performance optimization for most common case with only single not empty span.
+                        SnapshotSpan singleSpan = spans[0];
+                        return _tags.Where(p => singleSpan.IntersectsWith(p.Span.Span));
+                    }
                 default:
                     // We must use simple Span, using SnapshotSpan intersections can throws 'Different snapshots Exception'.
                     return _tags.Where(p => spans.Any(s => s.IntersectsWith(p.Span.Span)));
             }
+        }
+
+        private bool UpdateToNewerSnapshot(ITextSnapshot snapshot, bool forceUpdate)
+        {
+            if (snapshot == null) return false;
+
+            if (!forceUpdate)
+            {
+                lock (_parseLock)
+                {
+                    // The task is running, we can ignore snapshot upgrade because on the end the snapshop should be upgraded automatically.
+                    if (_parseTask is { IsCompleted: false }) return false;
+                }
+            }
+
+            bool first = true;
+
+            // Upgrade all tag spans to actual snapshot. We expect all to match because the parse task is not running and finished (probably no changes found).
+            // The cast to IList is safe, because _tags is set only with List<> or empty Array.
+            IList<ITagSpan<IClassificationTag>> tags = (IList<ITagSpan<IClassificationTag>>)_tags;
+            for (int i = 0; i < tags.Count; i++)
+            {
+                ITagSpan<IClassificationTag> tagSpan = tags[i];
+
+                if (first)
+                {
+                    ITextSnapshot oldSnapshot = tagSpan.Span.Snapshot;
+
+                    // The snapshot is already current.
+                    if (oldSnapshot == snapshot) return false;
+
+                    // The snapshots are different and no longer compatible.
+                    if (!forceUpdate && oldSnapshot.Length != snapshot.Length) return false;
+
+                    first = false;
+                }
+
+                SnapshotSpan span = new(snapshot, tagSpan.Span);
+                tags[i] = new TagSpan<IClassificationTag>(span, tagSpan.Tag);
+            }
+
+            // Returns TRUE when snapshot was upgraded.
+            return !first;
         }
 
         public async Task ParseAsync(int topPosition = 0, bool forceActual = true)
@@ -291,6 +339,13 @@ namespace RainbowBraces
             {
                 // We can clear the temporary list to avoid memory leaks.
                 _tempTagList.Clear();
+
+                // And will only upgrade to newest snapshot.
+                if (UpdateToNewerSnapshot(_buffer.CurrentSnapshot, true))
+                {
+                    // The snapshot was upgraded, raise the event.
+                    TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+                }
                 return;
             }
 
@@ -392,7 +447,7 @@ namespace RainbowBraces
             // Processing has ended.
             _allowanceResolver.Cleanup();
 
-            List<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength);
+            IReadOnlyList<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength);
 
             // Check if tag collection is different from previous result. If so, we do not need to raise TagsChanged event.
             if (AreEqualTags(tags, _tags)) return;
@@ -452,7 +507,7 @@ namespace RainbowBraces
             }
         }
 
-        private List<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs, int cycleLength)
+        private IReadOnlyList<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs, int cycleLength)
         {
             List<ITagSpan<IClassificationTag>> tags = new();
 
