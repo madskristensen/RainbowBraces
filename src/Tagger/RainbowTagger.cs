@@ -204,13 +204,17 @@ namespace RainbowBraces
             }
         }
 
-        private void UpdateToNewerSnapshot(ITextSnapshot snapshot, bool ignoreVersion)
+        private bool UpdateToNewerSnapshot(ITextSnapshot snapshot, bool forceUpdate)
         {
-            if (snapshot == null) return;
-            lock (_parseLock)
+            if (snapshot == null) return false;
+
+            if (!forceUpdate)
             {
-                // The task is running, we can ignore snapshot upgrade because on the end the snapshop should be upgraded automatically.
-                if (_parseTask is { IsCompleted: false }) return;
+                lock (_parseLock)
+                {
+                    // The task is running, we can ignore snapshot upgrade because on the end the snapshop should be upgraded automatically.
+                    if (_parseTask is { IsCompleted: false }) return false;
+                }
             }
 
             bool first = true;
@@ -227,10 +231,10 @@ namespace RainbowBraces
                     ITextSnapshot oldSnapshot = tagSpan.Span.Snapshot;
 
                     // The snapshot is already current.
-                    if (oldSnapshot == snapshot) return;
+                    if (oldSnapshot == snapshot) return false;
 
                     // The snapshots are different and no longer compatible.
-                    if (!ignoreVersion && oldSnapshot.Length != snapshot.Length) return;
+                    if (!forceUpdate && oldSnapshot.Length != snapshot.Length) return false;
 
                     first = false;
                 }
@@ -238,6 +242,9 @@ namespace RainbowBraces
                 SnapshotSpan span = new(snapshot, tagSpan.Span);
                 tags[i] = new TagSpan<IClassificationTag>(span, tagSpan.Tag);
             }
+
+            // Returns TRUE when snapshot was upgraded.
+            return !first;
         }
 
         public async Task ParseAsync(int topPosition = 0, bool forceActual = true)
@@ -334,7 +341,11 @@ namespace RainbowBraces
                 _tempTagList.Clear();
 
                 // And will only upgrade to newest snapshot.
-                UpdateToNewerSnapshot(_buffer.CurrentSnapshot, true);
+                if (UpdateToNewerSnapshot(_buffer.CurrentSnapshot, true))
+                {
+                    // The snapshot was upgraded, raise the event.
+                    TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+                }
                 return;
             }
 
