@@ -61,7 +61,7 @@ namespace RainbowBraces
 
         public bool Enabled { get; set; } = true;
 
-        public async Task ColorizeVerticalAdornmentsAsync(IReadOnlyCollection<ITextView> views, List<ITagSpan<IClassificationTag>> tags)
+        public async Task ColorizeVerticalAdornmentsAsync(IReadOnlyCollection<ITextView> views, IReadOnlyList<ITagSpan<IClassificationTag>> tags)
         {
             if (_failedReflection) return;
             ProcessTags(tags);
@@ -78,7 +78,7 @@ namespace RainbowBraces
             }
         }
 
-        private void ProcessTags(List<ITagSpan<IClassificationTag>> tags)
+        private void ProcessTags(IReadOnlyList<ITagSpan<IClassificationTag>> tags)
         {
             if (tags.Count == 0)
             {
