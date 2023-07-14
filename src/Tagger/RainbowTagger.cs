@@ -313,18 +313,20 @@ namespace RainbowBraces
             // Must be performed on the UI thread.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            if (_buffer.CurrentSnapshot.LineCount > _maxLineLength)
+            // Work with the current snapshot, it can change while parsing (after we leave main thread)
+            ITextSnapshot currentSnapshot = _buffer.CurrentSnapshot;
+            if (currentSnapshot.LineCount > _maxLineLength)
             {
-                await VS.StatusBar.ShowMessageAsync($"No rainbow braces. File too big ({_buffer.CurrentSnapshot.LineCount} lines).");
+                await VS.StatusBar.ShowMessageAsync($"No rainbow braces. File too big ({currentSnapshot.LineCount} lines).");
                 return;
             }
 
             int visibleStart = GetVisibleStart();
             int visibleEnd = GetVisibleEnd();
-            ITextSnapshotLine changedLine = _buffer.CurrentSnapshot.GetLineFromPosition(topPosition);
+            ITextSnapshotLine changedLine = currentSnapshot.GetLineFromPosition(topPosition);
             int changeStart = changedLine.Start.Position;
 
-            SnapshotSpan wholeDocSpan = new(_buffer.CurrentSnapshot, 0, visibleEnd);
+            SnapshotSpan wholeDocSpan = new(currentSnapshot, 0, visibleEnd);
 
             // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
             // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
@@ -339,12 +341,12 @@ namespace RainbowBraces
             {
                 // We can clear the temporary list to avoid memory leaks.
                 _tempTagList.Clear();
-
+                
                 // And will only upgrade to newest snapshot.
-                if (UpdateToNewerSnapshot(_buffer.CurrentSnapshot, true))
+                if (UpdateToNewerSnapshot(currentSnapshot, true))
                 {
                     // The snapshot was upgraded, raise the event.
-                    TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+                    TagsChanged?.Invoke(this, new(new(currentSnapshot, visibleStart, visibleEnd - visibleStart)));
                 }
                 return;
             }
@@ -382,7 +384,7 @@ namespace RainbowBraces
                 builders.LoadFromCache(_pairsCache, changeStart);
             }
 
-            foreach (ITextSnapshotLine line in _buffer.CurrentSnapshot.Lines)
+            foreach (ITextSnapshotLine line in currentSnapshot.Lines)
             {
                 // Ignore ignore empty lines
                 if (line.Extent.IsEmpty)
@@ -438,7 +440,7 @@ namespace RainbowBraces
                     }
                 }
 
-                if (line.End >= visibleEnd || line.LineNumber >= _buffer.CurrentSnapshot.LineCount)
+                if (line.End >= visibleEnd || line.LineNumber >= currentSnapshot.LineCount)
                 {
                     break;
                 }
@@ -454,7 +456,7 @@ namespace RainbowBraces
 
             builders.SaveToCache(_pairsCache);
             _tags = tags;
-            TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
+            TagsChanged?.Invoke(this, new(new(currentSnapshot, visibleStart, visibleEnd - visibleStart)));
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 

@@ -8,12 +8,14 @@ namespace RainbowBraces
     public class BracePairBuilder : PairBuilder
     {
         private readonly TagAllowance[] _allowedTags;
+        private readonly TagAllowance[] _ignoredTags;
 
-        public BracePairBuilder(char open, char close, BracePairBuilderCollection collection, TagAllowance[] allowedTags) : base(collection)
+        public BracePairBuilder(char open, char close, BracePairBuilderCollection collection, TagAllowance[] allowedTags, TagAllowance[] ignoredTags) : base(collection)
         {
             Open = open;
             Close = close;
             _allowedTags = allowedTags;
+            _ignoredTags = ignoredTags;
         }
 
         public char Open { get; }
@@ -27,8 +29,16 @@ namespace RainbowBraces
 
             if (_allowedTags != null)
             {
+                IEnumerable<MatchingContext.OrderedAllowanceSpan> possibleSpans = context.MatchingSpans;
+
+                // Remove ignored tags
+                if (_ignoredTags is { Length: > 0 })
+                {
+                    possibleSpans = possibleSpans.Where(t => !_ignoredTags.Contains(t.Allowance));
+                }
+
                 // All matching tags must match allowed tags
-                if (context.MatchingSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
+                if (possibleSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
             }
 
             if (c == Open)
