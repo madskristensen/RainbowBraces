@@ -41,10 +41,17 @@ namespace RainbowBraces.Tagger
         {
             // Create builders for each brace type
             BracePairBuilderCollection builders = new();
+
             if (options.Parentheses) builders.AddBuilder('(', ')');
+
             if (options.CurlyBrackets) builders.AddBuilder('{', '}');
+
             if (options.SquareBrackets) builders.AddBuilder('[', ']');
-            if (options.AngleBrackets) builders.AddBuilder('<', '>', new[] { TagAllowance.Punctuation }); // Allow only punctuation
+
+            // Allow only punctuation.
+            // Ignore XML tags, in rare circumstances, Razor tagger will mark regular generics operator as XML tag, so we'll ignore it.
+            if (options.AngleBrackets) builders.AddBuilder('<', '>', Singleton.Punctuation, Singleton.XmlTag);
+
             if (options.XmlTags && AllowXmlTags) builders.AddXmlTagBuilder(AllowHtmlVoidElement);
 
             return builders;
@@ -107,5 +114,12 @@ namespace RainbowBraces.Tagger
         /// Implementation for allowance resolution for <see cref="ILayeredClassificationType"/>.
         /// </summary>
         protected abstract TagAllowance IsAllowed(ILayeredClassificationType layeredType);
+
+        private class Singleton
+        {
+            public static TagAllowance[] Punctuation { get; } = { TagAllowance.Punctuation };
+
+            public static TagAllowance[] XmlTag { get; } = { TagAllowance.XmlTag };
+        }
     }
 }

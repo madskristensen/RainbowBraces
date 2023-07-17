@@ -10,9 +10,9 @@ namespace RainbowBraces
         
         public int Level => _builders.Sum(builder => builder.OpenPairs.Count);
 
-        public void AddBuilder(char open, char close, TagAllowance[] allowedTags = null)
+        public void AddBuilder(char open, char close, TagAllowance[] allowedTags = null, TagAllowance[] ignoredTags = null)
         {
-            BracePairBuilder builder = new(open, close, this, allowedTags);
+            BracePairBuilder builder = new(open, close, this, allowedTags, ignoredTags);
             _builders.Add(builder);
         }
 
