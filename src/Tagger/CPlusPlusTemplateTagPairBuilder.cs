@@ -28,7 +28,11 @@ public class CPlusPlusTemplateTagPairBuilder : PairBuilder
             if (!TryGetPrevious(span, out string previous)) return false;
             if (!CPlusPlusAllowanceResolver.IsValidPreviousOpen(previous)) return false;
 
-            if (!TryGetNext(span, out string next)) return false;
+            if (!TryGetNext(span, 1, out string next)) return false;
+
+            // if next tag is "operator" we'll check the further tag because it can be unary operator. (!, ~ or - etc.)
+            if (next == "operator") if (!TryGetNext(span, 2, out next)) return false;
+
             if (!CPlusPlusAllowanceResolver.IsValidNextOpen(next)) return false;
             
             BracePair pair = new()
@@ -84,10 +88,10 @@ public class CPlusPlusTemplateTagPairBuilder : PairBuilder
             previousClassification = _allowanceResolver.GetClassification(previous.Span.Start, previous.Span.End);
             return true;
         }
-
-        bool TryGetNext(MatchingContext.OrderedAllowanceSpan span, out string nextClassification)
+        
+        bool TryGetNext(MatchingContext.OrderedAllowanceSpan span, int forward, out string nextClassification)
         {
-            int nextIndex = span.FromEndOrderIndex + 1;
+            int nextIndex = span.FromEndOrderIndex + forward;
             if (nextIndex < 0 || nextIndex >= context.FromEnd.Count)
             {
                 nextClassification = null;

@@ -43,6 +43,7 @@ namespace RainbowBraces.Tagger
 
             _allowedNextOpenClassifications = new()
             {
+                "cppClassTemplate", // template<Concept T>
                 "cppType", // <enable_if_t<...>>
                 "cppGlobalVariable", // enable_if_t<is_invocable_v<...>>
                 "keyword", // <bool>
