@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Text;
 using RainbowBraces.Tagger;
@@ -37,8 +37,17 @@ namespace RainbowBraces
                     possibleSpans = possibleSpans.Where(t => !_ignoredTags.Contains(t.Allowance));
                 }
 
+                bool anyAllowed = false;
+
                 // All matching tags must match allowed tags
-                if (possibleSpans.Any(t => !_allowedTags.Contains(t.Allowance))) return false;
+                foreach (MatchingContext.OrderedAllowanceSpan t in possibleSpans)
+                {
+                    if (!_allowedTags.Contains(t.Allowance)) return false;
+                    anyAllowed = true;
+                }
+
+                // All matched tags are ignored
+                if (!anyAllowed) return false;
             }
 
             if (c == Open)
