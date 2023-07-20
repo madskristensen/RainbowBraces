@@ -38,6 +38,7 @@ namespace RainbowBraces
         private bool _isEnabled;
         private bool _scanWholeFile;
         private int? _startPositionChange;
+        private readonly bool _knownToChangeTags;
         private static readonly Regex _regex = new(@"\/\>|\<\/|[\{\}\(\)\[\]\<\>]", RegexOptions.Compiled);
         private static Regex _specializedRegex;
         private Task _parseTask;
@@ -54,6 +55,12 @@ namespace RainbowBraces
             _isEnabled = IsEnabled(General.Instance);
             _scanWholeFile = General.Instance.VerticalAdornments;
             _debouncer = new(General.Instance.Timeout);
+
+            // Inline diff editor can change tags multiple times.
+            if (view.Roles.Contains(CustomTextViewRoles.InlineDiff))
+            {
+                _knownToChangeTags = true;
+            }
 
             _buffer.Changed += OnBufferChanged;
             General.Saved += OnSettingsSaved;
@@ -98,7 +105,8 @@ namespace RainbowBraces
             if (!_isEnabled) return;
 
             bool isViewportChange = e.VerticalTranslation || e.HorizontalTranslation;
-            bool canParse = (_scanWholeFile, _allowanceResolver.CanChangeTags, isViewportChange) switch
+            bool canChangeTags = _knownToChangeTags || _allowanceResolver.CanChangeTags;
+            bool canParse = (_scanWholeFile, canChangeTags, isViewportChange) switch
             {
                 // We scan whole file and listen to tags change, we can ignore viewport change. (I'm not so sure if viewport change can introduce new tags we are aware of)
                 (true, true, true) => false,

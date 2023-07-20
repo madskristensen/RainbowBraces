@@ -31,6 +31,7 @@ namespace RainbowBraces
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
+    [TextViewRole(CustomTextViewRoles.Diff)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
     {
@@ -75,8 +76,11 @@ namespace RainbowBraces
         {
             if (textView.TextBuffer == buffer) return true;
 
-            // sticky scroll container is allowed for colorization
+            // Sticky scroll container is allowed for colorization.
             if (textView.Roles.Contains(CustomTextViewRoles.StickyScroll)) return true;
+            
+            // Inline diff editor is allowed for colorization. (but before and after codes are mixed and can looks weird)
+            if (textView.Roles.Contains(CustomTextViewRoles.InlineDiff)) return true;
 
             // HTML textview don't use HTML buffer but only HTMLProjection.
             if (textView.TextBuffer.ContentType.IsOfType("HTMLProjection") && IsSupportedHtmlContentType(buffer.ContentType)) return true;
