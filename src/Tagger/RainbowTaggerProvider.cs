@@ -28,6 +28,7 @@ namespace RainbowBraces
     [ContentType("XSharp")]
     [ContentType("Razor")]
     [ContentType("LegacyRazorVisualBasic")]
+    [ContentType("WebForms")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
@@ -82,14 +83,22 @@ namespace RainbowBraces
             // Inline diff editor is allowed for colorization. (but before and after codes are mixed and can looks weird)
             if (textView.Roles.Contains(CustomTextViewRoles.InlineDiff)) return true;
 
-            // HTML textview don't use HTML buffer but only HTMLProjection.
-            if (textView.TextBuffer.ContentType.IsOfType("HTMLProjection") && IsSupportedHtmlContentType(buffer.ContentType)) return true;
+            // HTML/WebForms textview don't use HTML buffer but only HTMLProjection or WebFormsProjection.
+            if (IsSuportedHtmlTextBufferContentType(textView.TextBuffer.ContentType) && IsSupportedHtmlContentType(buffer.ContentType)) return true;
             return false;
+
+            static bool IsSuportedHtmlTextBufferContentType(IContentType contentType)
+            {
+                if (contentType.IsOfType("HTMLProjection")) return true;
+                if (contentType.IsOfType("WebFormsProjection")) return true;
+                return false;
+            }
 
             static bool IsSupportedHtmlContentType(IContentType contentType)
             {
                 if (contentType.IsOfType("HTML")) return true;
                 if (contentType.IsOfType("Basic")) return true;
+                if (contentType.IsOfType("WebForms")) return true;
                 return false;
             }
         }
