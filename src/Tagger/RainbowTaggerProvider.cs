@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.Composition;
+using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
@@ -59,11 +59,7 @@ namespace RainbowBraces
 
             try
             {
-                ITagger<T> result = buffer.Properties.GetOrCreateSingletonProperty(() =>
-                {
-                    ITagAggregator<IClassificationTag> aggregator = _aggregator.CreateTagAggregator<IClassificationTag>(textView);
-                    return new RainbowTagger(textView, buffer, _registry, aggregator, _formatMap);
-                }) as ITagger<T>;
+                ITagger<T> result = buffer.Properties.GetOrCreateSingletonProperty(() => new RainbowTagger(textView, buffer, _registry, _aggregator, _formatMap)) as ITagger<T>;
                 (result as RainbowTagger)?.AddView(textView);
                 return result;
             }
