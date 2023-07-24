@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -25,7 +25,9 @@ namespace RainbowBraces
         private readonly ITextBuffer _buffer;
         private readonly List<ITextView> _views = new();
         private readonly IClassificationTypeRegistryService _registry;
-        private readonly ITagAggregator<IClassificationTag> _aggregator;
+        private readonly IViewTagAggregatorFactoryService _aggregatorFactory;
+        private ITagAggregator<IClassificationTag> _aggregator;
+        private ITextView _aggregatorView;
         private readonly IClassificationFormatMapService _formatMapService;
         private readonly VerticalAdornmentsColorizer _verticalAdornmentsColorizer;
         private readonly AllowanceResolver _allowanceResolver;
@@ -44,11 +46,13 @@ namespace RainbowBraces
         private Task _parseTask;
         private readonly object _parseLock = new();
 
-        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, ITagAggregator<IClassificationTag> aggregator, IClassificationFormatMapService formatMapService)
+        public RainbowTagger(ITextView view, ITextBuffer buffer, IClassificationTypeRegistryService registry, IViewTagAggregatorFactoryService aggregatorFactory, IClassificationFormatMapService formatMapService)
         {
             _buffer = buffer;
             _registry = registry;
-            _aggregator = aggregator;
+            _aggregatorFactory = aggregatorFactory;
+            _aggregatorView = view;
+            _aggregator = _aggregatorFactory.CreateTagAggregator<IClassificationTag>(_aggregatorView);
             _formatMapService = formatMapService;
             _verticalAdornmentsColorizer = new(formatMapService);
             _allowanceResolver = GetAllowanceResolver(buffer);
@@ -94,8 +98,22 @@ namespace RainbowBraces
             view.Closed -= OnViewClosed;
             view.LayoutChanged -= View_LayoutChanged;
             _views.Remove(view);
-            if (_views.Count != 0) return;
+            if (_views.Count != 0)
+            {
+                // If view with aggregator was closed, we need to create new from existing views.
+                if (_aggregatorView == view)
+                {
+                    _aggregatorView = _views.FirstOrDefault(v => !v.IsClosed);
+                    if (_aggregatorView != null)
+                    {
+                        _aggregator = _aggregatorFactory.CreateTagAggregator<IClassificationTag>(_aggregatorView);
+                    }
+                }
 
+                return;
+            }
+
+            // Last view was closed, release all resources.
             view.TextBuffer.Changed -= OnBufferChanged;
             General.Saved -= OnSettingsSaved;
         }
