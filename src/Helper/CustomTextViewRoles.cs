@@ -17,5 +17,10 @@
         /// TextView role for inline diff editor.
         /// </summary>
         public const string InlineDiff = "INLINEDIFF";
+
+        /// <summary>
+        /// TextView role for Read–eval–print loop.
+        /// </summary>
+        public const string Repl = "REPL";
     }
 }

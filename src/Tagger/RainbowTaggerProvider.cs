@@ -33,6 +33,7 @@ namespace RainbowBraces
     [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
     [TextViewRole(CustomTextViewRoles.Diff)]
+    [TextViewRole(CustomTextViewRoles.Repl)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
     {
@@ -78,6 +79,9 @@ namespace RainbowBraces
             
             // Inline diff editor is allowed for colorization. (but before and after codes are mixed and can looks weird)
             if (textView.Roles.Contains(CustomTextViewRoles.InlineDiff)) return true;
+            
+            // Allow REPL text view for scripts.
+            if (textView.Roles.Contains(CustomTextViewRoles.Repl)) return true;
 
             // HTML/WebForms textview don't use HTML buffer but only HTMLProjection or WebFormsProjection.
             if (IsSuportedHtmlTextBufferContentType(textView.TextBuffer.ContentType) && IsSupportedHtmlContentType(buffer.ContentType)) return true;
