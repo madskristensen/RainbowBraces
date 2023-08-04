@@ -13,6 +13,7 @@ namespace RainbowBraces.Tagger
             if (tagType.IsOfType(PredefinedClassificationTypeNames.Operator)) return TagAllowance.Operator;
             if (tagType.IsOfType("XAML Delimiter")) return TagAllowance.Delimiter;
             if (tagType.IsOfType("SQL Operator")) return TagAllowance.Operator;
+            if (tagType.IsOfType("unnecessary code")) return TagAllowance.Ignore;
             return TagAllowance.Disallowed;
         }
 
@@ -28,6 +29,7 @@ namespace RainbowBraces.Tagger
                 PredefinedClassificationTypeNames.Operator => TagAllowance.Operator,
                 "XAML Delimiter" => TagAllowance.Delimiter,
                 "SQL Operator" => TagAllowance.Operator,
+                "unnecessary code" => TagAllowance.Ignore,
                 _ => TagAllowance.Disallowed,
             };
             if (allowance != TagAllowance.Disallowed) return allowance;

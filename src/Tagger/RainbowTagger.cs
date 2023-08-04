@@ -357,7 +357,10 @@ namespace RainbowBraces
             // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
             // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
             _tempTagList.Clear();
-            _tempTagList.AddRange(_aggregator.GetTags(wholeDocSpan));
+            _tempTagList.AddRange(_aggregator.GetTags(wholeDocSpan)
+                // Ignore our own tags if they get into the list.
+                .Where(t => !t.Tag.ClassificationType.Classification.StartsWith("Rainbow Brace level "))
+            );
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
