@@ -165,7 +165,7 @@ namespace RainbowBraces
                 _specializedRegex = null;
                 _scanWholeFile = false;
                 int visibleStart = GetVisibleStart();
-                int visibleEnd = GetVisibleEnd();
+                int visibleEnd = GetVisibleEnd(_buffer.CurrentSnapshot);
                 TagsChanged?.Invoke(this, new(new(_buffer.CurrentSnapshot, visibleStart, visibleEnd - visibleStart)));
             }
 
@@ -348,7 +348,7 @@ namespace RainbowBraces
             }
 
             int visibleStart = GetVisibleStart();
-            int visibleEnd = GetVisibleEnd();
+            int visibleEnd = GetVisibleEnd(currentSnapshot);
             ITextSnapshotLine changedLine = currentSnapshot.GetLineFromPosition(topPosition);
             int changeStart = changedLine.Start.Position;
 
@@ -357,13 +357,16 @@ namespace RainbowBraces
             // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
             // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
             _tempTagList.Clear();
-            _tempTagList.AddRange(_aggregator.GetTags(wholeDocSpan));
+            _tempTagList.AddRange(_aggregator.GetTags(wholeDocSpan)
+                // Ignore our own tags if they get into the list.
+                .Where(t => !t.Tag.ClassificationType.Classification.StartsWith("Rainbow Brace level "))
+            );
 
             // Move the rest of the execution to a background thread.
             await TaskScheduler.Default;
 
             // Check if tags are equal from last processing.
-            if (AreEqualTags(_tagList, _tempTagList))
+            if (AreEqualTags(_tagList, _tempTagList, currentSnapshot))
             {
                 // We can clear the temporary list to avoid memory leaks.
                 _tempTagList.Clear();
@@ -391,7 +394,7 @@ namespace RainbowBraces
             _spanList.AddRange(_tagList
                 .Select(tag => (Tag: tag, Allowance: _allowanceResolver.GetAllowance(tag)))
                 .Where(d => d.Allowance != TagAllowance.Ignore)
-                .SelectMany(d => d.Tag.Span.GetSpans(_buffer).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
+                .SelectMany(d => d.Tag.Span.GetSpans(currentSnapshot).Where(s => !s.IsEmpty).Select(span => (span, d.Allowance))));
             IList<(SnapshotSpan Span, TagAllowance Allowance)> allDisallow = _spanList;
 
             // Create builders for file.
@@ -475,7 +478,7 @@ namespace RainbowBraces
             // Processing has ended.
             _allowanceResolver.Cleanup();
 
-            IReadOnlyList<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength);
+            IReadOnlyList<ITagSpan<IClassificationTag>> tags = GenerateTagSpans(builders.SelectMany(b => b.GetPairs()), options.CycleLength, currentSnapshot);
 
             // Check if tag collection is different from previous result. If so, we do not need to raise TagsChanged event.
             if (AreEqualTags(tags, _tags)) return;
@@ -486,7 +489,7 @@ namespace RainbowBraces
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 
-        private bool AreEqualTags(IReadOnlyList<IMappingTagSpan<IClassificationTag>> originalTags, IReadOnlyList<IMappingTagSpan<IClassificationTag>> newTags)
+        private static bool AreEqualTags(IReadOnlyList<IMappingTagSpan<IClassificationTag>> originalTags, IReadOnlyList<IMappingTagSpan<IClassificationTag>> newTags, ITextSnapshot snapshot)
         {
             if (originalTags.Count != newTags.Count) return false;
             for (int i = 0; i < originalTags.Count; i++)
@@ -494,7 +497,7 @@ namespace RainbowBraces
                 IMappingTagSpan<IClassificationTag> originalTag = originalTags[i];
                 IMappingTagSpan<IClassificationTag> newTag = newTags[i];
                 if (!originalTag.Tag.ClassificationType.Classification.Equals(newTag.Tag.ClassificationType.Classification)) return false;
-                if (!AreEqualSpans(originalTag.Span.GetSpans(_buffer), newTag.Span.GetSpans(_buffer))) return false;
+                if (!AreEqualSpans(originalTag.Span.GetSpans(snapshot), newTag.Span.GetSpans(snapshot))) return false;
             }
             return true;
         }
@@ -535,7 +538,7 @@ namespace RainbowBraces
             }
         }
 
-        private IReadOnlyList<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs, int cycleLength)
+        private IReadOnlyList<ITagSpan<IClassificationTag>> GenerateTagSpans(IEnumerable<BracePair> pairs, int cycleLength, ITextSnapshot snapshot)
         {
             List<ITagSpan<IClassificationTag>> tags = new();
 
@@ -543,11 +546,11 @@ namespace RainbowBraces
             {
                 IClassificationType classification = _registry.GetClassificationType(ClassificationTypes.GetName(pair.Level, cycleLength));
                 ClassificationTag openTag = new(classification);
-                SnapshotSpan openSpan = new(_buffer.CurrentSnapshot, pair.Open);
+                SnapshotSpan openSpan = new(snapshot, pair.Open);
                 tags.Add(new TagSpan<IClassificationTag>(openSpan, openTag));
 
                 ClassificationTag closeTag = new(classification);
-                SnapshotSpan closeSpan = new(_buffer.CurrentSnapshot, pair.Close);
+                SnapshotSpan closeSpan = new(snapshot, pair.Close);
                 tags.Add(new TagSpan<IClassificationTag>(closeSpan, closeTag));
             }
 
@@ -562,11 +565,11 @@ namespace RainbowBraces
             return visibleStart;
         }
 
-        private int GetVisibleEnd()
+        private int GetVisibleEnd(ITextSnapshot snapshot)
         {
-            if (_scanWholeFile) return _buffer.CurrentSnapshot.Length;
+            if (_scanWholeFile) return snapshot.Length;
 
-            int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, _buffer.CurrentSnapshot.Length);
+            int visibleEnd = Math.Min(_views.Max(view => view.TextViewLines.Last().End.Position) + _overflow, snapshot.Length);
             return visibleEnd;
         }
 
