@@ -366,7 +366,7 @@ namespace RainbowBraces
             await TaskScheduler.Default;
 
             // Check if tags are equal from last processing.
-            if (AreEqualTags(_tagList, _tempTagList, currentSnapshot))
+            if (AreEqualTags(_tagList, _tempTagList))
             {
                 // We can clear the temporary list to avoid memory leaks.
                 _tempTagList.Clear();
@@ -489,7 +489,7 @@ namespace RainbowBraces
             if (options.VerticalAdornments) ColorizeVerticalAdornments();
         }
 
-        private static bool AreEqualTags(IReadOnlyList<IMappingTagSpan<IClassificationTag>> originalTags, IReadOnlyList<IMappingTagSpan<IClassificationTag>> newTags, ITextSnapshot snapshot)
+        private static bool AreEqualTags(IReadOnlyList<IMappingTagSpan<IClassificationTag>> originalTags, IReadOnlyList<IMappingTagSpan<IClassificationTag>> newTags)
         {
             if (originalTags.Count != newTags.Count) return false;
             for (int i = 0; i < originalTags.Count; i++)
@@ -497,7 +497,7 @@ namespace RainbowBraces
                 IMappingTagSpan<IClassificationTag> originalTag = originalTags[i];
                 IMappingTagSpan<IClassificationTag> newTag = newTags[i];
                 if (!originalTag.Tag.ClassificationType.Classification.Equals(newTag.Tag.ClassificationType.Classification)) return false;
-                if (!AreEqualSpans(originalTag.Span.GetSpans(snapshot), newTag.Span.GetSpans(snapshot))) return false;
+                if (!AreEqualSpans(originalTag.Span.GetSpans(originalTag.Span.AnchorBuffer), newTag.Span.GetSpans(newTag.Span.AnchorBuffer))) return false;
             }
             return true;
         }
