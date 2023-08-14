@@ -61,7 +61,9 @@ namespace RainbowBraces
             _debouncer = new(General.Instance.Timeout);
 
             // Inline diff editor can change tags multiple times.
-            if (view.Roles.Contains(CustomTextViewRoles.InlineDiff))
+            if (view.Roles.Contains(CustomTextViewRoles.InlineDiff) || 
+                // CSharp source buffer inside legacy .cshtml is also initialized lazily
+                (buffer.ContentType.IsOfType("CSharp") && buffer != view.TextBuffer))
             {
                 _knownToChangeTags = true;
             }
@@ -370,7 +372,7 @@ namespace RainbowBraces
             {
                 // We can clear the temporary list to avoid memory leaks.
                 _tempTagList.Clear();
-                
+
                 // And will only upgrade to newest snapshot.
                 if (UpdateToNewerSnapshot(currentSnapshot, true))
                 {
@@ -633,6 +635,7 @@ namespace RainbowBraces
                 "TYPESCRIPT" => new RazorAllowanceResolver(),
                 "LEGACYRAZORVISUALBASIC" => new RazorAllowanceResolver(),
                 "WEBFORMS" => new RazorAllowanceResolver(),
+                "LEGACYRAZORCSHARP" => new RazorAllowanceResolver(),
                 "HTML-DELEGATION" => new RazorAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };

@@ -77,10 +77,10 @@ namespace RainbowBraces
 
             // Sticky scroll container is allowed for colorization.
             if (textView.Roles.Contains(CustomTextViewRoles.StickyScroll)) return true;
-            
+
             // Inline diff editor is allowed for colorization. (but before and after codes are mixed and can looks weird)
             if (textView.Roles.Contains(CustomTextViewRoles.InlineDiff)) return true;
-            
+
             // Allow REPL text view for scripts.
             if (textView.Roles.Contains(CustomTextViewRoles.Repl)) return true;
 
@@ -100,7 +100,9 @@ namespace RainbowBraces
             {
                 if (contentType.IsOfType("HTML")) return true;
                 if (contentType.IsOfType("Basic")) return true;
+                if (contentType.IsOfType("CSharp")) return true;
                 if (contentType.IsOfType("WebForms")) return true;
+                if (contentType.IsOfType("LegacyRazorCSharp")) return true;
                 if (contentType.IsOfType("html-delegation")) return true;
                 return false;
             }
