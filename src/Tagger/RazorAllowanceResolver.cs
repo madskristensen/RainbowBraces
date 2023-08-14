@@ -27,9 +27,13 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
     protected override TagAllowance IsAllowed(IClassificationType tagType)
     {
         // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
-        if (tagType.IsOfType(PredefinedClassificationTypeNames.String)) return TagAllowance.Ignore; 
-        
-        if (General.Instance.XmlTags && tagType.IsOfType("HTML Tag Delimiter")) return TagAllowance.XmlTag;
+        if (tagType.IsOfType(PredefinedClassificationTypeNames.String)) return TagAllowance.Ignore;
+
+        if (General.Instance.XmlTags)
+        {
+            if (tagType.IsOfType("HTML Tag Delimiter")) return TagAllowance.XmlTag;
+            if (tagType.IsOfType("HTML Operator")) return TagAllowance.XmlTag;
+        }
 
         return base.IsAllowed(tagType);
     }
@@ -42,7 +46,11 @@ public class RazorAllowanceResolver : DefaultAllowanceResolver
         // string (eg. interpolated or parameter filling) tag can contain punctuation or inlined C# code and braces without tags are ignored by default (DefaultAllowed = false)
         if (classification == PredefinedClassificationTypeNames.String) return TagAllowance.Ignore;
 
-        if (General.Instance.XmlTags && layeredType.Classification is "HTML Tag Delimiter") return TagAllowance.XmlTag;
+        if (General.Instance.XmlTags)
+        {
+            if (layeredType.Classification is "HTML Tag Delimiter") return TagAllowance.XmlTag;
+            if (layeredType.Classification is "HTML Operator") return TagAllowance.XmlTag;
+        }
 
         return base.IsAllowed(layeredType);
     }
