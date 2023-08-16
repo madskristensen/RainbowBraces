@@ -29,6 +29,7 @@ namespace RainbowBraces
     [ContentType("Razor")]
     [ContentType("LegacyRazorVisualBasic")]
     [ContentType("WebForms")]
+    [ContentType("html-delegation")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
@@ -91,6 +92,7 @@ namespace RainbowBraces
             {
                 if (contentType.IsOfType("HTMLProjection")) return true;
                 if (contentType.IsOfType("WebFormsProjection")) return true;
+                if (contentType.IsOfType("html-delegation")) return true;
                 return false;
             }
 
@@ -101,6 +103,7 @@ namespace RainbowBraces
                 if (contentType.IsOfType("CSharp")) return true;
                 if (contentType.IsOfType("WebForms")) return true;
                 if (contentType.IsOfType("LegacyRazorCSharp")) return true;
+                if (contentType.IsOfType("html-delegation")) return true;
                 return false;
             }
         }

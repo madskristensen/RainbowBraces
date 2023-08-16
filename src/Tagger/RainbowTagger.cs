@@ -636,6 +636,7 @@ namespace RainbowBraces
                 "LEGACYRAZORVISUALBASIC" => new RazorAllowanceResolver(),
                 "WEBFORMS" => new RazorAllowanceResolver(),
                 "LEGACYRAZORCSHARP" => new RazorAllowanceResolver(),
+                "HTML-DELEGATION" => new RazorAllowanceResolver(),
                 _ => new DefaultAllowanceResolver()
             };
 
