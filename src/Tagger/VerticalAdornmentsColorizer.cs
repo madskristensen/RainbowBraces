@@ -5,9 +5,12 @@ using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Tagging;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 
 namespace RainbowBraces
 {
@@ -16,8 +19,6 @@ namespace RainbowBraces
         private static bool _failedReflection;
         private static readonly CachedType _wpfTextViewType;
         private static readonly CachedProperty<object> _wpfTextViewContent;
-        private static readonly CachedType _canvasType;
-        private static readonly CachedProperty<IList> _canvasChildren;
         private static readonly CachedType _viewStackType;
         private static readonly CachedProperty<IList> _viewStackChildren;
         private static readonly CachedType _adornmentLayerType;
@@ -25,9 +26,12 @@ namespace RainbowBraces
         private static readonly CachedType _adornmentAndDataType;
         private static readonly CachedProperty<SnapshotSpan?> _adornmentAndDataVisualSpan;
         private static readonly CachedProperty<object> _adornmentAndDataAdornment;
-        private static readonly CachedType _lineType;
-        private static readonly CachedProperty<object> _lineStroke;
+
+        private static readonly CachedType _structureLine;
+        private static readonly CachedField<Pen> _structureLinePen;
+
         private static Dictionary<string, Brush> _braceColors = new();
+        private static Dictionary<Brush, Pen> _brushPens = new();
 
         private readonly IClassificationFormatMapService _formatMap;
         private Dictionary<int, IClassificationTag> _tagsByStart;
@@ -39,17 +43,17 @@ namespace RainbowBraces
         {
             _wpfTextViewType = new("WpfTextView");
             _wpfTextViewContent = new("Content", _wpfTextViewType);
-            _canvasType = new("Canvas");
-            _canvasChildren = new("Children", _canvasType);
             _viewStackType = new("ViewStack");
             _viewStackChildren = new("Children", _viewStackType);
             _adornmentLayerType = new("AdornmentLayer");
             _adornmentLayerElements = new("Elements", _adornmentLayerType);
             _adornmentAndDataType = new("AdornmentAndData");
             _adornmentAndDataVisualSpan = new("VisualSpan", _adornmentAndDataType);
-            _adornmentAndDataAdornment = new("Adornment", _adornmentAndDataType);
-            _lineType = new("Line");
-            _lineStroke = new("Stroke", _lineType);
+            _adornmentAndDataAdornment = new("Adornment", _adornmentAndDataType); 
+
+            // Preview version use custom line to draw vertical adornments
+            _structureLine = new("StructureLine");
+            _structureLinePen = new("drawingPen", _structureLine, false); // StructureLine is only used in newer versions of Visual Studio
 
             General.Saved += OnSettingsSaved;
         }
@@ -120,8 +124,8 @@ namespace RainbowBraces
 
             try
             {
-                if (!_wpfTextViewContent.TryGet(view, out object canvas)) return;
-                if (!_canvasChildren.TryGet(canvas, out IList canvasEls)) return;
+                if (!_wpfTextViewContent.TryGet(view, out object content) || content is not Canvas canvas) return;
+                UIElementCollection canvasEls = canvas.Children;
                 if (canvasEls is not { Count: > 1 }) return;
                 object viewStack = canvasEls[1];
                 if (!_viewStackChildren.TryGet(viewStack, out IList adornments)) return;
@@ -156,8 +160,8 @@ namespace RainbowBraces
         {
             try
             {
-                if (!_adornmentAndDataAdornment.TryGet(element, out object line)) return;
-                if (!_lineType.IsOfType(line)) return;
+                if (!_adornmentAndDataAdornment.TryGet(element, out object verticalLine)) return;
+                if (verticalLine is not Line && !_structureLine.IsOfType(verticalLine)) return;
                 if (!_adornmentAndDataVisualSpan.TryGet(element, out SnapshotSpan? span) || span == null) return;
                 if (!_tagsByEnd.TryGetValue(span.Value.End.Position, out IClassificationTag tag))
                 {
@@ -168,7 +172,25 @@ namespace RainbowBraces
                     if (index < 0 || !_tagsByStart.TryGetValue(index + span.Value.Start, out tag)) return;
                 }
                 Brush color = GetColor(tag, view);
-                if (!_lineStroke.TrySet(line, color)) return;
+                if (verticalLine is Line line)
+                {
+                    line.Stroke = color;
+                }
+                else
+                {
+                    // Try get actual pen ..
+                    if (!_structureLinePen.TryGet(verticalLine, out Pen pen)) return;
+
+                    // .. and replace it with new color pen ..
+                    Pen newPen = GetPen(color, pen);
+                    if (!_structureLinePen.TrySet(verticalLine, newPen)) return;
+
+                    // .. and force it to rerender
+                    if (verticalLine is UIElement uiElement)
+                    {
+                        uiElement.InvalidateVisual();
+                    }
+                }
             }
             catch
             {
@@ -190,6 +212,19 @@ namespace RainbowBraces
             }
 
             return brush;
+        }
+
+        private static Pen GetPen(Brush brush, Pen originalPen)
+        {
+            // We assume that all pens are same so we can use cached pens by color
+            Dictionary<Brush, Pen> brushPens = _brushPens;
+            if (!brushPens.TryGetValue(brush, out Pen pen))
+            {
+                pen = originalPen.Clone();
+                pen.Brush = brush;
+                brushPens.Add(brush, pen);
+            }
+            return pen;
         }
 
         public async Task RegisterViewAsync(ITextView view)
@@ -250,7 +285,9 @@ namespace RainbowBraces
 
         private static void OnSettingsSaved(General obj)
         {
+            // Clear cached colors
             _braceColors = new Dictionary<string, Brush>();
+            _brushPens = new Dictionary<Brush, Pen>();
         }
 
         private class CachedType
@@ -275,57 +312,147 @@ namespace RainbowBraces
             }
         }
 
-        private class CachedProperty<T>
+        private abstract class CachedMember<TMember>
         {
-            private readonly string _propertyName;
+            private readonly string _name;
+            private readonly bool _globalFail;
             private readonly CachedType _cachedType;
-            private PropertyInfo _propertyInfo;
+            private bool _failed;
+            private TMember _member;
 
-            public CachedProperty(string propertyName, CachedType cachedType)
+            protected CachedMember(string name, CachedType cachedType, bool globalFail)
             {
-                _propertyName = propertyName;
+                _name = name;
                 _cachedType = cachedType;
+                _globalFail = globalFail;
             }
 
-            private bool TryInit()
+            private void TryInit()
             {
+                if (_failed) return;
+
                 try
                 {
-                    _propertyInfo = _cachedType.Type.GetRuntimeProperty(_propertyName);
-                    if (typeof(T) != typeof(object) && !typeof(T).IsAssignableFrom(_propertyInfo.PropertyType))
-                    {
-                        throw new Exception("Property type is not expected");
-                    }
-
-                    return true;
+                    _member = GetMember(_cachedType.Type, _name);
+                    CheckMember(_member);
                 }
                 catch
                 {
-                    _failedReflection = true;
-                    return false;
+                    if (_globalFail)
+                    {
+                        _failedReflection = true;
+                    }
+                    else
+                    {
+                        _failed = true;
+                    }
                 }
             }
 
-            public bool TryGet(object obj, out T value)
+            protected bool EnsureInitialized(object obj, out TMember member)
+            {
+                member = default;
+                if (_failed) return false;
+                if (!_cachedType.IsOfType(obj)) return false;
+
+                if (_member == null)
+                {
+                    TryInit();
+                }
+
+                member = _member;
+                return member != null;
+            }
+
+            protected abstract TMember GetMember(Type type, string name);
+
+            protected virtual void CheckMember(TMember member)
+            {
+
+            }
+        }
+
+        private abstract class CachedFieldPropertyMember<TMember, TValue> : CachedMember<TMember>
+        {
+            protected CachedFieldPropertyMember(string name, CachedType cachedType, bool globalFail) : base(name, cachedType, globalFail)
+            {
+            }
+
+            protected override void CheckMember(TMember member)
+            {
+                Type type = GetMemberType(member);
+                if (typeof(TValue) != typeof(object) && !typeof(TValue).IsAssignableFrom(type))
+                {
+                    throw new Exception("Member type is not expected");
+                }
+            }
+
+            public bool TryGet(object obj, out TValue value)
             {
                 value = default;
-                if (!_cachedType.IsOfType(obj)) return false;
-                if (_propertyInfo == null && !TryInit()) return false;
+                if (!EnsureInitialized(obj, out TMember member)) return false;
 
-                // _propertyInfo is not null when TryInit returns true
-                value = (T)_propertyInfo!.GetValue(obj);
+                try
+                {
+                    value = GetValue(member, obj);
+                }
+                catch
+                {
+                    return false;
+                }
                 return value != null;
             }
 
-            public bool TrySet(object obj, T value)
+            public bool TrySet(object obj, TValue value)
             {
-                if (!_cachedType.IsOfType(obj)) return false;
-                if (_propertyInfo == null && !TryInit()) return false;
+                if (!EnsureInitialized(obj, out TMember member)) return false;
 
-                // _propertyInfo is not null when TryInit returns true
-                _propertyInfo!.SetValue(obj, value);
+                try
+                {
+                    SetValue(member, obj, value);
+                }
+                catch
+                {
+                    return false;
+                }
                 return true;
             }
+
+            protected abstract Type GetMemberType(TMember member);
+
+            protected abstract TValue GetValue(TMember member, object obj);
+
+            protected abstract void SetValue(TMember member, object obj, TValue value);
+        }
+
+        private class CachedProperty<TValue> : CachedFieldPropertyMember<PropertyInfo, TValue>
+        {
+            public CachedProperty(string propertyName, CachedType cachedType, bool globalFail = true) : base(propertyName, cachedType, globalFail)
+            {
+            }
+
+            protected override PropertyInfo GetMember(Type type, string name) => type.GetRuntimeProperty(name);
+
+            protected override Type GetMemberType(PropertyInfo propertyInfo) => propertyInfo.PropertyType;
+
+            protected override TValue GetValue(PropertyInfo propertyInfo, object obj) => (TValue)propertyInfo.GetValue(obj);
+
+            protected override void SetValue(PropertyInfo propertyInfo, object obj, TValue value) => propertyInfo.SetValue(obj, value);
+        }
+
+        private class CachedField<TValue> : CachedFieldPropertyMember<FieldInfo, TValue>
+        {
+            public CachedField(string fieldName, CachedType cachedType, bool globalFail = true) : base(fieldName, cachedType, globalFail)
+            {
+            }
+
+            protected override FieldInfo GetMember(Type type, string name) => type.GetRuntimeFields().First(f => f.Name == name);
+
+            protected override Type GetMemberType(FieldInfo member) => member.FieldType;
+
+            protected override TValue GetValue(FieldInfo member, object obj) => (TValue)member.GetValue(obj);
+
+            protected override void SetValue(FieldInfo member, object obj, TValue value) => member.SetValue(obj, value);
         }
     }
 }
