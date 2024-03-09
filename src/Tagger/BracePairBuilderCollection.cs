@@ -8,17 +8,19 @@ namespace RainbowBraces
     {
         private readonly List<PairBuilder> _builders = new();
         
-        public int Level => _builders.Sum(builder => builder.OpenPairs.Count);
+        public int Level => _builders
+            .Where(builder => builder.UseGlobalStack)
+            .Sum(builder => builder.OpenPairs.Count);
 
-        public void AddBuilder(char open, char close, TagAllowance[] allowedTags = null, TagAllowance[] ignoredTags = null)
+        public void AddBuilder(char open, char close, bool useGlobalStack, TagAllowance[] allowedTags = null, TagAllowance[] ignoredTags = null)
         {
-            BracePairBuilder builder = new(open, close, this, allowedTags, ignoredTags);
+            BracePairBuilder builder = new(open, close, useGlobalStack, this, allowedTags, ignoredTags);
             _builders.Add(builder);
         }
 
-        public void AddXmlTagBuilder(bool allowHtmlVoidTag)
+        public void AddXmlTagBuilder(bool allowHtmlVoidTag, bool useGlobalStack)
         {
-            XmlTagPairBuilder builder = new(this, allowHtmlVoidTag);
+            XmlTagPairBuilder builder = new(useGlobalStack, this, allowHtmlVoidTag);
             _builders.Add(builder);
         }
 

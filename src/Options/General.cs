@@ -27,7 +27,7 @@ namespace RainbowBraces
 
         [Category("General")]
         [DisplayName("Cycle length")]
-        [Description("Coloring will repeat after this many nested braces.")]
+        [Description("Coloring will repeat after this many nested braces. Value greater than 9 will be effectively clamped to 9.")]
         [DefaultValue(4)]
         public int CycleLength { get; set; } = 4;
 
@@ -38,10 +38,24 @@ namespace RainbowBraces
         public bool CurlyBrackets { get; set; } = true;
 
         [Category("Braces and brackets")]
+        [DisplayName("Use global cycle stack to colorize curly brackets { }")]
+        [Description("Determines whether or not curly brackets color should be taken from global cycle stack.\n"
+                     + "If set to false. Curly brackets will maintain its own color cycle stack.")]
+        [DefaultValue(true)]
+        public bool CurlyBracketsUseGlobalStack { get; set; } = true;
+
+        [Category("Braces and brackets")]
         [DisplayName("Colorize parentheses ( )")]
         [Description("Determines whether or not parentheses should be colorized.")]
         [DefaultValue(true)]
         public bool Parentheses { get; set; } = true;
+
+        [Category("Braces and brackets")]
+        [DisplayName("Use global cycle stack to colorize parentheses ( )")]
+        [Description("Determines whether or not parentheses color should be taken from global cycle stack.\n"
+                     + "If set to false. Parentheses will maintain its own color cycle stack.")]
+        [DefaultValue(true)]
+        public bool ParenthesesUseGlobalStack { get; set; } = true;
 
         [Category("Braces and brackets")]
         [DisplayName("Colorize square brackets [ ]")]
@@ -50,20 +64,34 @@ namespace RainbowBraces
         public bool SquareBrackets { get; set; } = true;
         
         [Category("Braces and brackets")]
+        [DisplayName("Use global cycle stack to colorize square brackets [ ]")]
+        [Description("Determines whether or not square brackets color should be taken from global cycle stack.\n"
+                     + "If set to false. Square brackets will maintain its own color cycle stack.")]
+        [DefaultValue(true)]
+        public bool SquareBracketsUseGlobalStack { get; set; } = true;
+        
+        [Category("Braces and brackets")]
         [DisplayName("Colorize angle brackets < >")]
         [Description("Determines whether or not angle brackets should be colorized.")]
         [DefaultValue(true)]
         public bool AngleBrackets { get; set; } = true;
 
         [Category("Braces and brackets")]
+        [DisplayName("Use global cycle stack to colorize angle brackets < >")]
+        [Description("Determines whether or not angle brackets color should be taken from global cycle stack.\n"
+                     + "If set to false. Angle brackets will maintain its own color cycle stack.")]
+        [DefaultValue(true)]
+        public bool AngleBracketsUseGlobalStack { get; set; } = true;
+
+        [Category("Braces and brackets")]
         [DisplayName("Colorize vertical lines between { }")]
-        [Description("Determines whether or not colorize vertical linese between curly brackets with the same color as curly brackets pair. Feature is still work in progress.")]
+        [Description("Determines whether or not colorize vertical lines between curly brackets with the same color as curly brackets pair. Feature is still work in progress.")]
         [DefaultValue(false)]
         public bool VerticalAdornments { get; set; } = false;
 
         [Category("Braces and brackets")]
         [DisplayName("Colorize XML/XHTML tags <item> ... </item>")]
-        [Description("Determines whether or not XML or XHTML tags should be colored to clarify nestiness.")]
+        [Description("Determines whether or not XML or XHTML tags should be colorized to clarify nestiness.")]
         [DefaultValue(true)]
         public bool XmlTags { get; set; } = true;
         

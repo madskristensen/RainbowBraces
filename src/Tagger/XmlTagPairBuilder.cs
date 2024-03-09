@@ -12,7 +12,7 @@ namespace RainbowBraces
         private bool _inVoidTag;
 
         /// <inheritdoc />
-        public XmlTagPairBuilder(BracePairBuilderCollection collection, bool allowHtmlVoidTag) : base(collection)
+        public XmlTagPairBuilder(bool useGlobalStack, BracePairBuilderCollection collection, bool allowHtmlVoidTag) : base(collection, useGlobalStack)
         {
             _allowHtmlVoidTag = allowHtmlVoidTag;
         }
