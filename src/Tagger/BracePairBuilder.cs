@@ -10,7 +10,7 @@ namespace RainbowBraces
         private readonly TagAllowance[] _allowedTags;
         private readonly TagAllowance[] _ignoredTags;
 
-        public BracePairBuilder(char open, char close, BracePairBuilderCollection collection, TagAllowance[] allowedTags, TagAllowance[] ignoredTags) : base(collection)
+        public BracePairBuilder(char open, char close, bool useGlobalStack, BracePairBuilderCollection collection, TagAllowance[] allowedTags, TagAllowance[] ignoredTags) : base(collection, useGlobalStack)
         {
             Open = open;
             Close = close;

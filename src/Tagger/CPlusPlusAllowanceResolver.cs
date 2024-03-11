@@ -95,10 +95,10 @@ namespace RainbowBraces.Tagger
         {
             // Create builders for each brace type only specific to C++
             BracePairBuilderCollection builders = new();
-            if (options.Parentheses) builders.AddBuilder('(', ')');
-            if (options.CurlyBrackets) builders.AddBuilder('{', '}');
-            if (options.SquareBrackets) builders.AddBuilder('[', ']');
-            if (options.ExperimentalCPlusPlusGenerics) builders.AddBuilder(collection => new CPlusPlusTemplateTagPairBuilder(collection, this));
+            if (options.Parentheses) builders.AddBuilder('(', ')', options.ParenthesesUseGlobalStack);
+            if (options.CurlyBrackets) builders.AddBuilder('{', '}', options.CurlyBracketsUseGlobalStack);
+            if (options.SquareBrackets) builders.AddBuilder('[', ']', options.SquareBracketsUseGlobalStack);
+            if (options.ExperimentalCPlusPlusGenerics) builders.AddBuilder(collection => new CPlusPlusTemplateTagPairBuilder(collection, options.AngleBracketsUseGlobalStack, this));
 
             return builders;
         }

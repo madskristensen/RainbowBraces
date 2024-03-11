@@ -149,6 +149,11 @@ namespace RainbowBraces
 
         private void OnSettingsSaved(General settings)
         {
+            // Clear caches to recreate all tags according to new settings
+            _pairsCache.Clear();
+            _tagList.Clear();
+            _specializedRegex = null;
+
             if (IsEnabled(settings))
             {
                 _scanWholeFile = settings.VerticalAdornments;
@@ -160,11 +165,7 @@ namespace RainbowBraces
             }
             else
             {
-                _pairsCache.Clear();
-
                 _tags = Array.Empty<ITagSpan<IClassificationTag>>();
-                _tagList.Clear();
-                _specializedRegex = null;
                 _scanWholeFile = false;
                 int visibleStart = GetVisibleStart();
                 int visibleEnd = GetVisibleEnd(_buffer.CurrentSnapshot);

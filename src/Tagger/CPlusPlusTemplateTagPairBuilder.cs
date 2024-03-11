@@ -11,7 +11,7 @@ public class CPlusPlusTemplateTagPairBuilder : PairBuilder
 {
     private readonly CPlusPlusAllowanceResolver _allowanceResolver;
 
-    public CPlusPlusTemplateTagPairBuilder(BracePairBuilderCollection collection, CPlusPlusAllowanceResolver allowanceResolver) : base(collection)
+    public CPlusPlusTemplateTagPairBuilder(BracePairBuilderCollection collection, bool useGlobalStack, CPlusPlusAllowanceResolver allowanceResolver) : base(collection, useGlobalStack)
     {
         _allowanceResolver = allowanceResolver;
     }

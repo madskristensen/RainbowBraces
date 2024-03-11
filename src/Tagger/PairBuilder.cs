@@ -9,9 +9,10 @@ namespace RainbowBraces
     {
         private readonly BracePairBuilderCollection _collection;
 
-        protected PairBuilder(BracePairBuilderCollection collection)
+        protected PairBuilder(BracePairBuilderCollection collection, bool useGlobalStack)
         {
             _collection = collection;
+            UseGlobalStack = useGlobalStack;
         }
 
         public List<BracePair> Pairs { get; } = new();
@@ -19,7 +20,9 @@ namespace RainbowBraces
         public Stack<BracePair> OpenPairs { get; } = new();
 
         // Use global level for all brace types
-        protected int NextLevel => _collection.Level + 1;
+        protected int NextLevel => (UseGlobalStack ? _collection.Level : OpenPairs.Count) + 1;
+
+        public bool UseGlobalStack { get; }
 
         protected static Span Empty { get; } = new(0, 0);
 

@@ -42,17 +42,17 @@ namespace RainbowBraces.Tagger
             // Create builders for each brace type
             BracePairBuilderCollection builders = new();
 
-            if (options.Parentheses) builders.AddBuilder('(', ')');
+            if (options.Parentheses) builders.AddBuilder('(', ')', options.ParenthesesUseGlobalStack);
 
-            if (options.CurlyBrackets) builders.AddBuilder('{', '}');
+            if (options.CurlyBrackets) builders.AddBuilder('{', '}', options.CurlyBracketsUseGlobalStack);
 
-            if (options.SquareBrackets) builders.AddBuilder('[', ']');
+            if (options.SquareBrackets) builders.AddBuilder('[', ']', options.SquareBracketsUseGlobalStack);
 
             // Allow only punctuation.
             // Ignore XML tags, in rare circumstances, Razor tagger will mark regular generics operator as XML tag, so we'll ignore it.
-            if (options.AngleBrackets) builders.AddBuilder('<', '>', Singleton.Punctuation, Singleton.XmlTag);
+            if (options.AngleBrackets) builders.AddBuilder('<', '>', options.AngleBracketsUseGlobalStack, Singleton.Punctuation, Singleton.XmlTag);
 
-            if (options.XmlTags && AllowXmlTags) builders.AddXmlTagBuilder(AllowHtmlVoidElement);
+            if (options.XmlTags && AllowXmlTags) builders.AddXmlTagBuilder(AllowHtmlVoidElement, options.AngleBracketsUseGlobalStack);
 
             return builders;
         }
