@@ -22,5 +22,10 @@
         /// TextView role for Read–eval–print loop.
         /// </summary>
         public const string Repl = "REPL";
+
+        /// <summary>
+        /// TextView role for preview of all-in-one search result.
+        /// </summary>
+        public const string SearchResultPreview = "SEARCH_RESULT_PREVIEW";
     }
 }

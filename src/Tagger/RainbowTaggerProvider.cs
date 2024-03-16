@@ -35,6 +35,7 @@ namespace RainbowBraces
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
     [TextViewRole(CustomTextViewRoles.Diff)]
     [TextViewRole(CustomTextViewRoles.Repl)]
+    [TextViewRole(CustomTextViewRoles.SearchResultPreview)]
     [TagType(typeof(IClassificationTag))]
     public class CreationListener : IViewTaggerProvider
     {
