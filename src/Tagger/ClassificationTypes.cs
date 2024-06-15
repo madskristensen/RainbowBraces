@@ -112,7 +112,7 @@ namespace RainbowBraces
         public Level2()
         {
             // Resistor code: Red=2
-            ForegroundColor = Colors.OrangeRed;
+            ForegroundColor = Colors.Orange;
             DisplayName = ClassificationTypes.Level2;
         }
     }
@@ -127,7 +127,7 @@ namespace RainbowBraces
         public Level3()
         {
             // Resistor code: Orange=3
-            ForegroundColor = Colors.Orange;
+            ForegroundColor = Colors.DarkKhaki;
             DisplayName = ClassificationTypes.Level3;
         }
     }
@@ -142,7 +142,7 @@ namespace RainbowBraces
         public Level4()
         {
             // Resistor code: Yellow=4
-            ForegroundColor = Colors.DarkKhaki;
+            ForegroundColor = Colors.DarkSeaGreen;
             DisplayName = ClassificationTypes.Level4;
         }
     }
@@ -202,7 +202,7 @@ namespace RainbowBraces
         public Level8()
         {
             // Resistor code: Gray=8
-            ForegroundColor = Colors.SlateGray;
+            ForegroundColor = Colors.Salmon;
             DisplayName = ClassificationTypes.Level8;
         }
     }
@@ -217,7 +217,7 @@ namespace RainbowBraces
         public Level9()
         {
             // Resistor code: White=9
-            ForegroundColor = Colors.LightSteelBlue;
+            ForegroundColor = Colors.Tomato;
             DisplayName = ClassificationTypes.Level9;
         }
     }
