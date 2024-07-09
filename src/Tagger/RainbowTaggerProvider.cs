@@ -30,6 +30,7 @@ namespace RainbowBraces
     [ContentType("LegacyRazorVisualBasic")]
     [ContentType("WebForms")]
     [ContentType("html-delegation")]
+    [ContentType("d")]
     [TextViewRole(PredefinedTextViewRoles.PrimaryDocument)]
     [TextViewRole(PredefinedTextViewRoles.EmbeddedPeekTextView)]
     [TextViewRole(CustomTextViewRoles.StickyScroll)]
