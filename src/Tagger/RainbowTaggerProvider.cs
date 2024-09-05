@@ -106,6 +106,7 @@ namespace RainbowBraces
                 if (contentType.IsOfType("WebForms")) return true;
                 if (contentType.IsOfType("LegacyRazorCSharp")) return true;
                 if (contentType.IsOfType("html-delegation")) return true;
+                if (contentType.IsOfType("phalanger")) return true;
                 return false;
             }
         }
