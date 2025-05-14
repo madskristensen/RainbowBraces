@@ -22,7 +22,7 @@ jobs:
       VsixManifestSourcePath: src\source.extension.cs
       
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Setup .NET build dependencies
       uses: timheuer/bootstrap-dotnet@v1
@@ -42,7 +42,7 @@ jobs:
       run: msbuild /v:m -restore /p:OutDir=\_built
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ github.event.repository.name }}.vsix
         path: /_built/**/*.vsix
@@ -53,10 +53,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Download Package artifact
-        uses: actions/download-artifact@v2 
+        uses: actions/download-artifact@v4
         with:
           name: ${{ github.event.repository.name }}.vsix
 
@@ -68,7 +68,7 @@ jobs:
       - name: Tag and Release
         if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]') }}
         id: tag_release
-        uses: softprops/action-gh-release@v0.1.13
+        uses: softprops/action-gh-release@v1
         with:
           body: Release ${{ needs.build.outputs.version }}
           tag_name: ${{ needs.build.outputs.version }}
