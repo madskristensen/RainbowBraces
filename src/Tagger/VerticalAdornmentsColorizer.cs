@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
@@ -28,7 +28,10 @@ namespace RainbowBraces
         private static readonly CachedProperty<object> _adornmentAndDataAdornment;
 
         private static readonly CachedType _structureLine;
-        private static readonly CachedField<Pen> _structureLinePen;
+        private static CachedField<Pen> _structureLinePen;
+        private static CachedField<Pen> _structureLinePenFallback;
+        private static readonly CachedField<Pen> _structureLinePenV2;
+        private static readonly CachedField<Pen> _structureLinePenV1;
 
         private static Dictionary<string, Brush> _braceColors = new();
         private static Dictionary<Brush, Pen> _brushPens = new();
@@ -53,7 +56,10 @@ namespace RainbowBraces
 
             // Preview version use custom line to draw vertical adornments
             _structureLine = new("StructureLine");
-            _structureLinePen = new("drawingPen", _structureLine, false); // StructureLine is only used in newer versions of Visual Studio
+            _structureLinePenV2 = new("_drawingPen", _structureLine, false); // StructureLine is only used in newer versions of Visual Studio
+            _structureLinePenV1 = new("drawingPen", _structureLine, false); // StructureLine is used in older versions of Visual Studio
+            _structureLinePen = _structureLinePenV2; // Use newer version of StructureLine if available
+            _structureLinePenFallback = _structureLinePenV1; // Fallback to older version of StructureLine
 
             General.Saved += OnSettingsSaved;
         }
@@ -179,7 +185,17 @@ namespace RainbowBraces
                 else
                 {
                     // Try get actual pen ..
-                    if (!_structureLinePen.TryGet(verticalLine, out Pen pen)) return;
+                    if (!_structureLinePen.TryGet(verticalLine, out Pen pen))
+                    {
+                        // .. if not found try to get it from the second field as fallback
+                        if (!_structureLinePenFallback.TryGet(verticalLine, out pen))
+                        {
+                            return;
+                        }
+
+                        // Store fallback pen for next time and swap fallback pen with the actual pen
+                        (_structureLinePen, _structureLinePenFallback) = (_structureLinePenFallback, _structureLinePen);
+                    }
 
                     // .. and replace it with new color pen ..
                     Pen newPen = GetPen(color, pen);
