@@ -52,7 +52,10 @@ namespace RainbowBraces
             _registry = registry;
             _aggregatorFactory = aggregatorFactory;
             _aggregatorView = view;
-            _aggregator = _aggregatorFactory.CreateTagAggregator<IClassificationTag>(_aggregatorView);
+            // Aggregator is created lazily in ParseInternalAsync to avoid calling IClassifierProvider.GetClassifier
+            // prematurely (before VS sets up the primary classifier aggregator for the view).
+            // Early creation causes third-party classifiers (e.g. TrailingWhitespace) to be instantiated
+            // before VS can register them in its own classification pipeline, resulting in them never being called.
             _formatMapService = formatMapService;
             _verticalAdornmentsColorizer = new(formatMapService);
             _allowanceResolver = GetAllowanceResolver(buffer);
@@ -356,6 +359,10 @@ namespace RainbowBraces
             int changeStart = changedLine.Start.Position;
 
             SnapshotSpan wholeDocSpan = new(currentSnapshot, 0, visibleEnd);
+
+            // Create aggregator lazily here (on the main thread) instead of in the constructor so that
+            // VS has already finished setting up the primary classifier pipeline before we query it.
+            _aggregator ??= _aggregatorFactory.CreateTagAggregator<IClassificationTag>(_aggregatorView);
 
             // Add tags to instantiated list to reduce allocations on UI thread and increase responsiveness
             // We expect tags count not to differ a lot between invocations so memory should not be wasted a lot
