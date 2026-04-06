@@ -109,10 +109,7 @@ namespace RainbowBraces
                 if (_aggregatorView == view)
                 {
                     _aggregatorView = _views.FirstOrDefault(v => !v.IsClosed);
-                    if (_aggregatorView != null)
-                    {
-                        _aggregator = _aggregatorFactory.CreateTagAggregator<IClassificationTag>(_aggregatorView);
-                    }
+                    _aggregator = null; // Will be reinitialized lazily in ParseInternalAsync
                 }
 
                 return;
