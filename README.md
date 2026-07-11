@@ -42,6 +42,13 @@ There are also a few other specific options available under the **Fonts and Colo
 
 For more advanced features, I recommend the free [Viasfora extension](https://marketplace.visualstudio.com/items?itemName=TomasRestrepo.Viasfora) by [Tomas Restrepo](https://twitter.com/tomasrestrepo).
 
+## Troubleshooting
+If you have the built-in **Brace Pair Colorization** feature enabled, you will need to disable it and restart Visual Studio for this Extension to take effect.
+
+To disable the feature, access the **Tools -> Options** dialog and uncheck the box **'Enable brace pair colorization'** under the **All Settings -> Text Editor -> General** section.
+
+![DiableBracePairColorization](art/disable-brace-pair-colorization.png)
+
 ## How can I help?
 If you enjoy using the extension, please give it a ★★★★★ rating on the [Visual Studio Marketplace][marketplace].
 
